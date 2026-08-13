@@ -90,10 +90,11 @@ The full wiring diagram and detailed component list with supplier references are
 
 | | |
 |---|---|
-| ![Rowenta mainboard UART connector](docs/pictures/01_rowenta_mainboard_uart_connector.jpg) | **Original UART connector on the Rowenta mainboard** (PU6080F0-DL02 V5.6), where the BroadLink module used to plug in. |
+| ![Rowenta mainboard, tapped connections](docs/pictures/01_rowenta_mainboard_solder_points.jpg) | **Rowenta mainboard** — solder points with white wires running to the capacitive touch buttons, plus the original connector that used to feed the (now disconnected) WiFi module. |
 | ![Perfboard front, assembled](docs/pictures/02_perfboard_front_assembled.jpg) | **Assembled bridge, top view** — ESP32 module (AZ-Delivery), CN1/CN2 terminal blocks, transistors and resistors. |
 | ![Perfboard back wiring](docs/pictures/03_perfboard_back_wiring.jpg) | **Back of the board** — point-to-point wiring and solder joints. |
 | ![Final assembly powered on](docs/pictures/04_final_assembly_powered_on.jpg) | **Final assembly, powered and running.** |
+| ![Web interface screenshot](docs/pictures/05_web_interface_screenshot.png) | **Built-in web interface** — live state, power toggle, mode icons, LED brightness, and timer button. |
 
 ### Schematic
 
@@ -197,10 +198,11 @@ Le schéma de câblage complet et la liste de composants détaillée avec réfé
 
 | | |
 |---|---|
-| ![Connecteur UART carte mère Rowenta](docs/pictures/01_rowenta_mainboard_uart_connector.jpg) | **Connecteur UART d'origine sur la carte mère Rowenta** (PU6080F0-DL02 V5.6), là où se branchait le module BroadLink. |
+| ![Carte mère Rowenta, points de connexion](docs/pictures/01_rowenta_mainboard_solder_points.jpg) | **Carte mère Rowenta** — points de soudure avec les fils blancs allant vers les boutons tactiles, ainsi que le connecteur d'origine qui alimentait le module WiFi (aujourd'hui débranché). |
 | ![Carte perforée, face avant assemblée](docs/pictures/02_perfboard_front_assembled.jpg) | **Montage assemblé, vue de dessus** — module ESP32 (AZ-Delivery), borniers CN1/CN2, transistors et résistances. |
 | ![Câblage arrière de la carte perforée](docs/pictures/03_perfboard_back_wiring.jpg) | **Face arrière de la carte** — câblage point à point et soudures. |
 | ![Montage final sous tension](docs/pictures/04_final_assembly_powered_on.jpg) | **Montage final, alimenté et en fonctionnement.** |
+| ![Capture de l'interface web](docs/pictures/05_web_interface_screenshot.png) | **Interface web embarquée** — état en direct, interrupteur marche/arrêt, icônes de mode, intensité LED, et bouton minuterie. |
 
 ### Schéma électrique
 
