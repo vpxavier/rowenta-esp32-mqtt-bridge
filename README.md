@@ -86,6 +86,15 @@ The build was done on a **perfboard**, with point-to-point wiring (no custom etc
 
 The full wiring diagram and detailed component list with supplier references are available in this repository.
 
+### Photos
+
+| | |
+|---|---|
+| ![Rowenta mainboard UART connector](docs/pictures/01_rowenta_mainboard_uart_connector.jpg) | **Original UART connector on the Rowenta mainboard** (PU6080F0-DL02 V5.6), where the BroadLink module used to plug in. |
+| ![Perfboard front, assembled](docs/pictures/02_perfboard_front_assembled.jpg) | **Assembled bridge, top view** — ESP32 module (AZ-Delivery), CN1/CN2 terminal blocks, transistors and resistors. |
+| ![Perfboard back wiring](docs/pictures/03_perfboard_back_wiring.jpg) | **Back of the board** — point-to-point wiring and solder joints. |
+| ![Final assembly powered on](docs/pictures/04_final_assembly_powered_on.jpg) | **Final assembly, powered and running.** |
+
 ### Schematic
 
 The full circuit schematic (ESP32 headers, terminal blocks, transistors, resistors, capacitors) is available online, viewable directly in the browser, no account required:
@@ -183,6 +192,15 @@ Le montage a été réalisé sur **carte perforée**, avec câblage point à poi
 6. **Home Assistant** détecte automatiquement l'appareil via MQTT Discovery — ou utilisez directement l'interface web embarquée à l'adresse IP de l'ESP32
 
 Le schéma de câblage complet et la liste de composants détaillée avec références fournisseur sont disponibles dans ce dépôt.
+
+### Photos
+
+| | |
+|---|---|
+| ![Connecteur UART carte mère Rowenta](docs/pictures/01_rowenta_mainboard_uart_connector.jpg) | **Connecteur UART d'origine sur la carte mère Rowenta** (PU6080F0-DL02 V5.6), là où se branchait le module BroadLink. |
+| ![Carte perforée, face avant assemblée](docs/pictures/02_perfboard_front_assembled.jpg) | **Montage assemblé, vue de dessus** — module ESP32 (AZ-Delivery), borniers CN1/CN2, transistors et résistances. |
+| ![Câblage arrière de la carte perforée](docs/pictures/03_perfboard_back_wiring.jpg) | **Face arrière de la carte** — câblage point à point et soudures. |
+| ![Montage final sous tension](docs/pictures/04_final_assembly_powered_on.jpg) | **Montage final, alimenté et en fonctionnement.** |
 
 ### Schéma électrique
 
