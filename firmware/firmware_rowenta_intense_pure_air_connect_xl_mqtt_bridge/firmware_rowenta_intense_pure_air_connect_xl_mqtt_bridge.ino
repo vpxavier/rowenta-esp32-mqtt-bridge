@@ -1,6 +1,6 @@
 /*
   ============================================================
-  Rowenta Pur Air Connect XL - Complete Firmware
+  Rowenta Intense Pure Air Connect XL - Complete Firmware
   ============================================================
   Author: Xavier Hang
   ============================================================

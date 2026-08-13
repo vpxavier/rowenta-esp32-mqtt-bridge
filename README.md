@@ -1,4 +1,4 @@
-# Rowenta Pur Air Connect XL — Local reconnection via ESP32 (no cloud) / Reconnexion locale via ESP32 (sans cloud)
+# Rowenta Intense Pure Air Connect XL — Local reconnection via ESP32 (no cloud) / Reconnexion locale via ESP32 (sans cloud)
 
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
@@ -13,7 +13,7 @@ Author / Auteur : **Xavier Hang** — [GitHub @vpxavier](https://github.com/vpxa
 
 ### Why this project
 
-The **Rowenta Pur Air Connect XL (PU6080F0)** air purifier relied entirely on SEB/Rowenta's cloud servers for remote control through the **Pure Air** app. When those servers were shut down, the app became unusable: no more remote control, no more smart-home integration — even though the appliance itself still worked perfectly.
+The **Rowenta Intense Pure Air Connect XL (PU6080F0)** air purifier relied entirely on SEB/Rowenta's cloud servers for remote control through the **Pure Air** app. When those servers were shut down, the app became unusable: no more remote control, no more smart-home integration — even though the appliance itself still worked perfectly.
 
 Rather than throwing away a device that was still mechanically and electrically fine, this project replaces the proprietary WiFi module (BroadLink) with an **ESP32** that talks directly to the purifier's mainboard locally, with no dependency on any external server.
 
@@ -80,7 +80,7 @@ The build was done on a **perfboard**, with point-to-point wiring (no custom etc
    - LIGHT → GPIO19
    - MODE → GPIO23
    - TIMER → GPIO5
-4. **Flash the firmware** (`firmware/firmware_rowenta_pur_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (board "ESP32 Dev Module", requires the **PubSubClient3** library)
+4. **Flash the firmware** (`firmware/firmware_rowenta_intense_pure_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (board "ESP32 Dev Module", requires the **PubSubClient3** library)
 5. **First boot**: connect to the `Rowenta-Setup` WiFi access point, configure your WiFi network and MQTT broker
 6. **Home Assistant** automatically detects the device via MQTT Discovery — or use the built-in web interface directly at the ESP32's IP address
 
@@ -121,7 +121,7 @@ This project involves modifying the internal electronics of a mains-powered appl
 
 ### Pourquoi ce projet
 
-Le purificateur d'air **Rowenta Pur Air Connect XL (PU6080F0)** dépendait entièrement des serveurs cloud SEB/Rowenta pour son contrôle à distance via l'application **Pure Air**. Lorsque ces serveurs ont été fermés, l'application est devenue inutilisable : plus aucun contrôle à distance, plus d'intégration domotique possible, alors que l'appareil lui-même fonctionnait toujours parfaitement.
+Le purificateur d'air **Rowenta Intense Pure Air Connect XL (PU6080F0)** dépendait entièrement des serveurs cloud SEB/Rowenta pour son contrôle à distance via l'application **Pure Air**. Lorsque ces serveurs ont été fermés, l'application est devenue inutilisable : plus aucun contrôle à distance, plus d'intégration domotique possible, alors que l'appareil lui-même fonctionnait toujours parfaitement.
 
 Plutôt que de jeter un appareil matériellement fonctionnel, ce projet remplace le module WiFi propriétaire (BroadLink) par un **ESP32**, qui dialogue directement avec la carte mère du purificateur en local, sans dépendre d'aucun serveur externe.
 
@@ -188,7 +188,7 @@ Le montage a été réalisé sur **carte perforée**, avec câblage point à poi
    - LIGHT → GPIO19
    - MODE → GPIO23
    - TIMER → GPIO5
-4. **Flasher le firmware** (`firmware/firmware_rowenta_pur_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (carte "ESP32 Dev Module", bibliothèque **PubSubClient3** requise)
+4. **Flasher le firmware** (`firmware/firmware_rowenta_intense_pure_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (carte "ESP32 Dev Module", bibliothèque **PubSubClient3** requise)
 5. **Premier démarrage** : connectez-vous au point d'accès WiFi `Rowenta-Setup`, configurez votre réseau WiFi et votre broker MQTT
 6. **Home Assistant** détecte automatiquement l'appareil via MQTT Discovery — ou utilisez directement l'interface web embarquée à l'adresse IP de l'ESP32
 
