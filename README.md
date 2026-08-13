@@ -94,7 +94,7 @@ The full wiring diagram and detailed component list with supplier references are
 | ![Perfboard front, assembled](docs/pictures/02_perfboard_front_assembled.jpg) | **Assembled bridge, top view** — ESP32 module (AZ-Delivery), CN1/CN2 terminal blocks, transistors and resistors. |
 | ![Perfboard back wiring](docs/pictures/03_perfboard_back_wiring.jpg) | **Back of the board** — point-to-point wiring and solder joints. |
 | ![Final assembly powered on](docs/pictures/04_final_assembly_powered_on.jpg) | **Final assembly, powered and running.** |
-| ![Web interface screenshot](docs/pictures/05_web_interface_screenshot.png) | **Built-in web interface** — live state, power toggle, mode icons, LED brightness, and timer button. |
+| ![Web interface screenshot](docs/pictures/06_web_interface_screenshot_EN.png) | **Built-in web interface** — live state, power toggle, mode icons, LED brightness, and timer button. A FR/EN language switch is available at the top of the page. |
 
 ### Schematic
 
@@ -202,7 +202,7 @@ Le schéma de câblage complet et la liste de composants détaillée avec réfé
 | ![Carte perforée, face avant assemblée](docs/pictures/02_perfboard_front_assembled.jpg) | **Montage assemblé, vue de dessus** — module ESP32 (AZ-Delivery), borniers CN1/CN2, transistors et résistances. |
 | ![Câblage arrière de la carte perforée](docs/pictures/03_perfboard_back_wiring.jpg) | **Face arrière de la carte** — câblage point à point et soudures. |
 | ![Montage final sous tension](docs/pictures/04_final_assembly_powered_on.jpg) | **Montage final, alimenté et en fonctionnement.** |
-| ![Capture de l'interface web](docs/pictures/05_web_interface_screenshot.png) | **Interface web embarquée** — état en direct, interrupteur marche/arrêt, icônes de mode, intensité LED, et bouton minuterie. |
+| ![Capture de l'interface web](docs/pictures/05_web_interface_screenshot_FR.png) | **Interface web embarquée** — état en direct, interrupteur marche/arrêt, icônes de mode, intensité LED, et bouton minuterie. Un sélecteur de langue FR/EN est disponible en haut de la page. |
 
 ### Schéma électrique
 

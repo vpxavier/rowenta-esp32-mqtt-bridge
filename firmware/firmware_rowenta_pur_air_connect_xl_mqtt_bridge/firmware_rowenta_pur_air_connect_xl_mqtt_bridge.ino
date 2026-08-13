@@ -82,7 +82,7 @@ IPAddress apIP(192, 168, 4, 1);
 bool portalMode = false;
 
 struct Config {
-  String wifiSsid, wifiPass, mqttHost, mqttUser, mqttPass, otaPass;
+  String wifiSsid, wifiPass, mqttHost, mqttUser, mqttPass, otaPass, uiLang;
   int mqttPort;
 } config;
 
@@ -102,6 +102,25 @@ const char* LIGHTS[] = {"Max", "Faible", "Eteint"};
 const int NUM_LIGHTS = 3;
 
 const char* AIR_LEVELS[] = {"Bonne", "Degradee", "Mauvaise"};
+
+// ============================================================
+// UI translation (display only — internal MODES/LIGHTS/AIR_LEVELS
+// values used for MQTT / matching stay in French)
+// ============================================================
+String T(const char* fr, const char* en) {
+  return (config.uiLang == "en") ? String(en) : String(fr);
+}
+
+const char* MODE_LABELS_FR[] = {"Silencieux", "Boost", "Jour", "Nuit"};
+const char* MODE_LABELS_EN[] = {"Silent", "Boost", "Day", "Night"};
+const char* LIGHT_LABELS_FR[] = {"Max", "Faible", "Eteint"};
+const char* LIGHT_LABELS_EN[] = {"Max", "Low", "Off"};
+const char* AIR_LEVELS_FR[] = {"Bonne", "Degradee", "Mauvaise"};
+const char* AIR_LEVELS_EN[] = {"Good", "Degraded", "Bad"};
+
+const char* modeLabel(int i) { return config.uiLang == "en" ? MODE_LABELS_EN[i] : MODE_LABELS_FR[i]; }
+const char* lightLabel(int i) { return config.uiLang == "en" ? LIGHT_LABELS_EN[i] : LIGHT_LABELS_FR[i]; }
+const char* airLevelLabel(int i) { return config.uiLang == "en" ? AIR_LEVELS_EN[i] : AIR_LEVELS_FR[i]; }
 
 uint8_t buf[256];
 int bufLen = 0;
@@ -126,6 +145,7 @@ bool loadConfigAndCheckReset() {
   config.mqttUser = prefs.getString("mqtt_user", "");
   config.mqttPass = prefs.getString("mqtt_pass", "");
   config.otaPass  = prefs.getString("ota_pass", "rowenta_ota");
+  config.uiLang   = prefs.getString("ui_lang", "fr");
   bool doubleReset = prefs.getBool("boot_pend", false);
   prefs.putBool("boot_pend", true);
   prefs.end();
@@ -141,6 +161,7 @@ void saveConfig() {
   prefs.putString("mqtt_user", config.mqttUser);
   prefs.putString("mqtt_pass", config.mqttPass);
   prefs.putString("ota_pass", config.otaPass);
+  prefs.putString("ui_lang", config.uiLang);
   prefs.end();
 }
 
@@ -227,33 +248,39 @@ String generateOtaPage(const char* message = "") {
   html += "input,select{width:100%;padding:8px;margin-top:4px;box-sizing:border-box;}";
   html += "button{margin-top:20px;width:100%;padding:12px;background:#2b7de9;color:white;border:none;border-radius:4px;font-size:16px;}";
   html += ".msg{background:#d4edda;padding:10px;border-radius:4px;margin-bottom:10px;}";
-  html += "h2{margin-top:28px;}hr{margin-top:30px;border:none;border-top:1px solid #ddd;}</style></head><body>";
-  html += "<h1>Parametres Rowenta</h1>";
+  html += "h2{margin-top:28px;}hr{margin-top:30px;border:none;border-top:1px solid #ddd;}";
+  html += ".langsw{text-align:right;margin-bottom:10px;font-size:13px;}";
+  html += ".langsw a{color:#888;text-decoration:none;margin-left:8px;}";
+  html += ".langsw a.active{color:#222;font-weight:700;text-decoration:underline;}";
+  html += "</style></head><body>";
+  html += "<div class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
+  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></div>";
+  html += "<h1>" + T("Parametres Rowenta", "Rowenta Settings") + "</h1>";
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
-  html += "<h2>Reseau WiFi</h2>";
-  html += "<p style='color:#888;font-size:13px;'>Reseau actuel : " + config.wifiSsid + "</p>";
+  html += "<h2>" + T("Reseau WiFi", "WiFi network") + "</h2>";
+  html += "<p style='color:#888;font-size:13px;'>" + T("Reseau actuel : ", "Current network: ") + config.wifiSsid + "</p>";
   html += "<form method='POST' action='/wifi'>";
-  html += "<label>Reseau detecte</label><select onchange=\"document.getElementById('ssid').value=this.value\">";
-  html += "<option value=''>-- choisir --</option>";
+  html += "<label>" + T("Reseau detecte", "Detected network") + "</label><select onchange=\"document.getElementById('ssid').value=this.value\">";
+  html += "<option value=''>-- " + T("choisir", "select") + " --</option>";
   for (int i = 0; i < networkCount; i++) {
     html += "<option value='" + WiFi.SSID(i) + "'>" + WiFi.SSID(i) + " (" + String(WiFi.RSSI(i)) + " dBm)</option>";
   }
   html += "</select>";
-  html += "<label>Nom du reseau (SSID)</label><input type='text' id='ssid' name='ssid' required>";
-  html += "<label>Mot de passe WiFi</label><input type='password' name='wifi_pass'>";
-  html += "<label>Mot de passe OTA actuel (requis)</label><input type='password' name='current_pass' required>";
-  html += "<button type='submit'>Changer de reseau et redemarrer</button></form>";
+  html += "<label>" + T("Nom du reseau (SSID)", "Network name (SSID)") + "</label><input type='text' id='ssid' name='ssid' required>";
+  html += "<label>" + T("Mot de passe WiFi", "WiFi password") + "</label><input type='password' name='wifi_pass'>";
+  html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
+  html += "<button type='submit'>" + T("Changer de reseau et redemarrer", "Change network and restart") + "</button></form>";
 
-  html += "<hr><h2>Mot de passe OTA</h2>";
+  html += "<hr><h2>" + T("Mot de passe OTA", "OTA password") + "</h2>";
   html += "<form method='POST' action='/ota'>";
-  html += "<label>Mot de passe OTA actuel (requis)</label><input type='password' name='current_pass' required>";
-  html += "<label>Nouveau mot de passe OTA</label><input type='password' name='ota_pass' minlength='8' required>";
-  html += "<label>Confirmer</label><input type='password' name='ota_pass2' minlength='8' required>";
-  html += "<button type='submit'>Enregistrer et redemarrer</button></form>";
+  html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
+  html += "<label>" + T("Nouveau mot de passe OTA", "New OTA password") + "</label><input type='password' name='ota_pass' minlength='8' required>";
+  html += "<label>" + T("Confirmer", "Confirm") + "</label><input type='password' name='ota_pass2' minlength='8' required>";
+  html += "<button type='submit'>" + T("Enregistrer et redemarrer", "Save and restart") + "</button></form>";
 
-  html += "<p style='margin-top:30px;color:#888;font-size:13px;'>IP actuelle : " + WiFi.localIP().toString() + "</p>";
-  html += "<a href='/' style='color:#888;font-size:13px;'>&larr; Retour a l'accueil</a>";
+  html += "<p style='margin-top:30px;color:#888;font-size:13px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + "</p>";
+  html += "<a href='/' style='color:#888;font-size:13px;'>&larr; " + T("Retour a l'accueil", "Back to home") + "</a>";
   html += "</body></html>";
   return html;
 }
@@ -298,15 +325,21 @@ String generateControlPage(const char* message = "") {
   html += ".slider:before{position:absolute;content:'';height:24px;width:24px;left:3px;bottom:3px;background:white;transition:.2s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3);}";
   html += ".switch input:checked + .slider{background:#27ae60;}";
   html += ".switch input:checked + .slider:before{transform:translateX(22px);}";
+  html += ".langsw{text-align:right;margin-bottom:6px;}";
+  html += ".langsw a{color:#9fb3cc;font-size:12px;text-decoration:none;margin-left:8px;}";
+  html += ".langsw a.active{color:white;font-weight:700;text-decoration:underline;}";
   html += "</style></head><body>";
-  html += "<h1>Purificateur Rowenta</h1>";
+  html += "<div class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
+  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></div>";
+  html += "<h1>" + T("Purificateur Rowenta", "Rowenta Purifier") + "</h1>";
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
   html += "<div class='card'>";
   if (!stateKnown) {
-    html += "<div class='row' id='unknownRow'><span class='k'>Etat</span><span class='v'>Inconnu (en attente de donnees UART...)</span></div>";
+    html += "<div class='row' id='unknownRow'><span class='k'>" + T("Etat", "State") + "</span><span class='v'>" +
+            T("Inconnu (en attente de donnees UART...)", "Unknown (waiting for UART data...)") + "</span></div>";
   } else {
-    html += "<div class='row'><span class='k'>Marche</span>";
+    html += "<div class='row'><span class='k'>" + T("Marche", "Power") + "</span>";
     html += "<form id='pwrform' method='POST' action='/cmd/power' style='margin:0;'>";
     html += "<input type='hidden' name='value' id='pwrval' value='" + String(statePower ? "ON" : "OFF") + "'>";
     html += "<label class='switch'><input type='checkbox' id='pwrCheckbox'" + String(statePower ? " checked" : "") +
@@ -317,41 +350,41 @@ String generateControlPage(const char* message = "") {
     if (stateAirQuality >= AIRQ_THRESHOLD_BAD) level = 2;
     else if (stateAirQuality >= AIRQ_THRESHOLD_DEGRADED) level = 1;
     const char* levelClass[] = {"good", "degraded", "bad"};
-    html += "<div class='row'><span class='k'>Qualite air</span><span class='badge " + String(levelClass[level]) + "' id='airqBadge'>" +
-            String(AIR_LEVELS[level]) + " (" + String(stateAirQuality) + ")</span></div>";
+    html += "<div class='row'><span class='k'>" + T("Qualite air", "Air quality") + "</span><span class='badge " + String(levelClass[level]) + "' id='airqBadge'>" +
+            String(airLevelLabel(level)) + " (" + String(stateAirQuality) + ")</span></div>";
   }
   html += "</div>";
 
   if (stateKnown) {
     html += "<div class='card'>";
 
-    html += "<label class='title'>Mode</label>";
+    html += "<label class='title'>" + T("Mode", "Mode") + "</label>";
     html += "<form method='POST' action='/cmd/mode' class='segmented icons' id='modeform'>";
     for (int i = 0; i < NUM_MODES; i++) {
       String id = "mode_" + String(i);
       html += "<input type='radio' id='" + id + "' name='value' value='" + String(MODES[i]) + "'" +
               (i == stateModeIdx ? " checked" : "") + " onchange='this.form.submit()'>";
-      html += "<label for='" + id + "'>" + String(MODE_ICONS[i]) + "<span class='lbl'>" + String(MODES[i]) + "</span></label>";
+      html += "<label for='" + id + "'>" + String(MODE_ICONS[i]) + "<span class='lbl'>" + String(modeLabel(i)) + "</span></label>";
     }
     html += "</form>";
 
-    html += "<label class='title'>Intensite LED</label>";
+    html += "<label class='title'>" + T("Intensite LED", "LED brightness") + "</label>";
     html += "<form method='POST' action='/cmd/light' class='segmented' id='lightform'>";
     for (int i = 0; i < NUM_LIGHTS; i++) {
       String id = "light_" + String(i);
       html += "<input type='radio' id='" + id + "' name='value' value='" + String(LIGHTS[i]) + "'" +
               (i == stateLightIdx ? " checked" : "") + " onchange='this.form.submit()'>";
-      html += "<label for='" + id + "'>" + String(LIGHTS[i]) + "</label>";
+      html += "<label for='" + id + "'>" + String(lightLabel(i)) + "</label>";
     }
     html += "</form>";
 
     html += "<form method='POST' action='/cmd/timer'>";
-    html += "<button type='submit' class='ghost'>Timer suivant</button></form>";
+    html += "<button type='submit' class='ghost'>" + T("Timer suivant", "Next timer") + "</button></form>";
 
     html += "</div>";
   }
 
-  html += "<a class='link' href='/settings'>Parametres (WiFi / OTA)</a>";
+  html += "<a class='link' href='/settings'>" + T("Parametres (WiFi / OTA)", "Settings (WiFi / OTA)") + "</a>";
 
   html += "<script>";
   html += "let pendingClick=false;";
@@ -366,7 +399,7 @@ String generateControlPage(const char* message = "") {
   html += "document.getElementById('pwrCheckbox').checked = (d.power==='ON');";
   html += "document.getElementById('pwrval').value = d.power;";
   html += "let badge=document.getElementById('airqBadge');";
-  html += "badge.textContent = d.level + ' (' + d.airq + ')';";
+  html += "badge.textContent = d.levelDisplay + ' (' + d.airq + ')';";
   html += "badge.className = 'badge ' + d.levelClass;";
   html += "let mr=document.querySelector('#modeform input[value=\"'+d.mode+'\"]');";
   html += "if(mr) mr.checked=true;";
@@ -402,8 +435,20 @@ void handleState() {
   json += "\"light\":\"" + String(LIGHTS[stateLightIdx]) + "\",";
   json += "\"airq\":" + String(stateAirQuality) + ",";
   json += "\"level\":\"" + String(AIR_LEVELS[level]) + "\",";
+  json += "\"levelDisplay\":\"" + String(airLevelLabel(level)) + "\",";
   json += "\"levelClass\":\"" + String(levelClass[level]) + "\"}";
   server.send(200, "application/json", json);
+}
+
+void handleLang() {
+  String v = server.arg("set");
+  if (v == "en" || v == "fr") {
+    config.uiLang = v;
+    saveConfig();
+  }
+  String ref = server.header("Referer");
+  server.sendHeader("Location", ref.length() > 0 ? ref : "/", true);
+  server.send(302, "text/plain", "");
 }
 
 void handleCmdPower() {
@@ -433,19 +478,20 @@ void handleOtaGet() { server.send(200, "text/html", generateOtaPage()); }
 void handleWifiPost() {
   String currentPass = server.arg("current_pass");
   if (currentPass != config.otaPass) {
-    server.send(200, "text/html", generateOtaPage("Erreur : mot de passe OTA actuel incorrect."));
+    server.send(200, "text/html", generateOtaPage(T("Erreur : mot de passe OTA actuel incorrect.", "Error: current OTA password is incorrect.").c_str()));
     return;
   }
   String newSsid = server.arg("ssid");
   String newPass = server.arg("wifi_pass");
   if (newSsid.length() == 0) {
-    server.send(200, "text/html", generateOtaPage("Erreur : le nom du reseau ne peut pas etre vide."));
+    server.send(200, "text/html", generateOtaPage(T("Erreur : le nom du reseau ne peut pas etre vide.", "Error: network name cannot be empty.").c_str()));
     return;
   }
   config.wifiSsid = newSsid;
   config.wifiPass = newPass;
   saveConfig();
-  server.send(200, "text/html", "<h1>Reseau WiFi mis a jour</h1><p>Redemarrage, reconnexion a " + newSsid + "...</p>");
+  server.send(200, "text/html", "<h1>" + T("Reseau WiFi mis a jour", "WiFi network updated") + "</h1><p>" +
+              T("Redemarrage, reconnexion a ", "Restarting, reconnecting to ") + newSsid + "...</p>");
   delay(1500);
   ESP.restart();
 }
@@ -453,22 +499,22 @@ void handleWifiPost() {
 void handleOtaPost() {
   String currentPass = server.arg("current_pass");
   if (currentPass != config.otaPass) {
-    server.send(200, "text/html", generateOtaPage("Erreur : mot de passe OTA actuel incorrect."));
+    server.send(200, "text/html", generateOtaPage(T("Erreur : mot de passe OTA actuel incorrect.", "Error: current OTA password is incorrect.").c_str()));
     return;
   }
   String p1 = server.arg("ota_pass");
   String p2 = server.arg("ota_pass2");
   if (p1.length() < 8) {
-    server.send(200, "text/html", generateOtaPage("Erreur : minimum 8 caracteres."));
+    server.send(200, "text/html", generateOtaPage(T("Erreur : minimum 8 caracteres.", "Error: minimum 8 characters.").c_str()));
     return;
   }
   if (p1 != p2) {
-    server.send(200, "text/html", generateOtaPage("Erreur : les deux mots de passe ne correspondent pas."));
+    server.send(200, "text/html", generateOtaPage(T("Erreur : les deux mots de passe ne correspondent pas.", "Error: the two passwords do not match.").c_str()));
     return;
   }
   config.otaPass = p1;
   saveConfig();
-  server.send(200, "text/html", "<h1>Mot de passe OTA mis a jour</h1><p>Redemarrage...</p>");
+  server.send(200, "text/html", "<h1>" + T("Mot de passe OTA mis a jour", "OTA password updated") + "</h1><p>" + T("Redemarrage...", "Restarting...") + "</p>");
   delay(1500);
   ESP.restart();
 }
@@ -788,6 +834,7 @@ void setup() {
     // Settings page also reachable at the device's normal IP (not just the AP portal)
     server.on("/", handleControlGet);
     server.on("/state", HTTP_GET, handleState);
+    server.on("/lang", HTTP_GET, handleLang);
     server.on("/settings", HTTP_GET, handleOtaGet);
     server.on("/ota", HTTP_POST, handleOtaPost);
     server.on("/wifi", HTTP_POST, handleWifiPost);
@@ -802,6 +849,7 @@ void setup() {
     ArduinoOTA.setPassword(config.otaPass.c_str());
     ArduinoOTA.onStart([]() { Serial.println("OTA : debut mise a jour"); });
     ArduinoOTA.onEnd([]() { Serial.println("\nOTA : terminee, redemarrage"); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) { esp_task_wdt_reset(); });
     ArduinoOTA.onError([](ota_error_t error) { Serial.printf("OTA erreur [%u]\n", error); });
     ArduinoOTA.begin();
     Serial.println("OTA pret (hostname: " + String(DEVICE_ID) + ")");
