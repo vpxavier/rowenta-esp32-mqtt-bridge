@@ -69,7 +69,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.1"
 
 // ---------- Global objects ----------
 HardwareSerial mcuSerial(2);
@@ -282,7 +282,7 @@ String generateOtaPage(const char* message = "") {
 
   html += "<p style='margin-top:30px;color:#888;font-size:13px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + "</p>";
   html += "<a href='/' style='color:#888;font-size:13px;'>&larr; " + T("Retour a l'accueil", "Back to home") + "</a>";
-  html += "<footer style='text-align:center;margin-top:22px;color:#aaa;font-size:11px;'>Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank' style='color:#aaa;'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
+  html += "<footer style='text-align:center;margin-top:22px;color:#aaa;font-size:11px;'>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank' style='color:#aaa;'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
   html += "</body></html>";
   return html;
 }
@@ -392,12 +392,20 @@ String generateControlPage(const char* message = "") {
 
   html += "<script>";
   html += "let pendingClick=false;";
+  html += "function lockUI(){";
+  html += "document.querySelectorAll('input,button').forEach(el=>el.disabled=true);";
+  html += "document.body.style.opacity='0.55';";
+  html += "}";
   html += "document.querySelectorAll('.segmented input, .switch input').forEach(el=>{";
-  html += "el.addEventListener('change',()=>{pendingClick=true;});";
+  html += "el.addEventListener('change',()=>{pendingClick=true;lockUI();});";
+  html += "});";
+  html += "document.querySelectorAll('form').forEach(f=>{";
+  html += "f.addEventListener('submit',lockUI);";
   html += "});";
   html += "function refreshState(){";
   html += "if(pendingClick)return;";
   html += "fetch('/state').then(r=>r.json()).then(d=>{";
+  html += "if(deviceWasDown){ location.href='/'; return; }";
   html += "if(!d.known){ if(document.getElementById('modeform')) location.reload(); return; }";
   html += "if(!document.getElementById('pwrCheckbox')){ location.reload(); return; }";
   html += "document.getElementById('pwrCheckbox').checked = (d.power==='ON');";
@@ -409,12 +417,13 @@ String generateControlPage(const char* message = "") {
   html += "if(mr) mr.checked=true;";
   html += "let lr=document.querySelector('#lightform input[value=\"'+d.light+'\"]');";
   html += "if(lr) lr.checked=true;";
-  html += "}).catch(()=>{});";
+  html += "}).catch(()=>{ deviceWasDown = true; });";
   html += "}";
+  html += "let deviceWasDown = false;";
   html += "setInterval(refreshState,2500);";
   html += "</script>";
 
-  html += "<footer>Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
+  html += "<footer>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
 
   html += "</body></html>";
   return html;

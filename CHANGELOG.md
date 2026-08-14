@@ -5,6 +5,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.0.1] — 2026-08-14
+
+### Added
+- UI lockout: all controls are disabled the instant a command is sent, preventing a second command from being fired while the previous one (e.g. a multi-press mode change) is still being processed.
+- Automatic page reload after an OTA update: if the web page is open during a firmware update, it detects the device going offline and reloads the home page once it's back online.
+- "Author:" label added before the author name in the page footer (bilingual).
+
+### Fixed
+- OTA updates no longer get interrupted by the hardware watchdog on larger firmware images: the watchdog is now fed during the OTA transfer itself via the `onProgress` callback.
+
 ## [1.0.0] — 2026-08-13
 
 ### Added
@@ -23,6 +33,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.0.1] — 2026-08-14
+
+### Ajouté
+- Verrouillage de l'interface : tous les contrôles sont désactivés dès qu'une commande est envoyée, empêchant qu'une seconde commande parte pendant que la précédente (par exemple un changement de mode à plusieurs appuis) est encore en cours de traitement.
+- Rechargement automatique de la page après une mise à jour OTA : si la page web est ouverte pendant une mise à jour, elle détecte la coupure de l'appareil et recharge la page d'accueil une fois celui-ci de nouveau disponible.
+- Ajout du label « Auteur : » devant le nom de l'auteur en bas de page (bilingue).
+
+### Corrigé
+- Les mises à jour OTA ne sont plus interrompues par le chien de garde matériel sur les images de firmware plus volumineuses : celui-ci est désormais nourri pendant le transfert OTA lui-même, via le callback `onProgress`.
 
 ## [1.0.0] — 2026-08-13
 
