@@ -37,6 +37,7 @@
 #include <Preferences.h>
 #include <PubSubClient.h>
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 #include <esp_task_wdt.h>
 
 // ---------- Pins ----------
@@ -69,7 +70,8 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.0.1"
+#define FIRMWARE_VERSION "1.0.2"
+#define MDNS_HOSTNAME "rowenta"
 
 // ---------- Global objects ----------
 HardwareSerial mcuSerial(2);
@@ -860,6 +862,13 @@ void setup() {
     server.begin();
     Serial.println("Page de parametres disponible sur http://" + WiFi.localIP().toString());
 
+    if (MDNS.begin(MDNS_HOSTNAME)) {
+      MDNS.addService("http", "tcp", 80);
+      Serial.println("mDNS actif : http://" MDNS_HOSTNAME ".local");
+    } else {
+      Serial.println("Echec demarrage mDNS.");
+    }
+
     ArduinoOTA.setHostname(DEVICE_ID);
     ArduinoOTA.setPassword(config.otaPass.c_str());
     ArduinoOTA.onStart([]() { Serial.println("OTA : debut mise a jour"); });
@@ -868,6 +877,7 @@ void setup() {
     ArduinoOTA.onError([](ota_error_t error) { Serial.printf("OTA erreur [%u]\n", error); });
     ArduinoOTA.begin();
     Serial.println("OTA pret (hostname: " + String(DEVICE_ID) + ")");
+    Serial.println("Accessible aussi via http://" MDNS_HOSTNAME ".local");
   }
 
   lastHeartbeat = millis();

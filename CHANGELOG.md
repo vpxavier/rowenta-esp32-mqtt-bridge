@@ -5,6 +5,11 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.0.2] — 2026-08-14
+
+### Added
+- mDNS support: the device is now reachable at `http://rowenta.local` on the local network, no need to look up its IP address.
+
 ## [1.0.1] — 2026-08-14
 
 ### Added
@@ -33,6 +38,11 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.0.2] — 2026-08-14
+
+### Ajouté
+- Support mDNS : l'appareil est désormais accessible via `http://rowenta.local` sur le réseau local, plus besoin de chercher son adresse IP.
 
 ## [1.0.1] — 2026-08-14
 
