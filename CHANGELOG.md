@@ -5,6 +5,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.1.1] — 2026-08-14
+
+### Changed
+- Added a top navigation menu (Home / Settings) on both pages, replacing the old bottom links.
+- The settings page now uses the same dark gradient background and card layout as the home page, for visual consistency.
+
 ## [1.1.0] — 2026-08-14
 
 ### Added
@@ -44,6 +50,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.1.1] — 2026-08-14
+
+### Modifié
+- Ajout d'un menu de navigation en haut de page (Accueil / Paramètres) sur les deux pages, remplaçant les anciens liens en bas de page.
+- La page de paramètres reprend maintenant le même fond dégradé sombre et la même disposition en cartes que la page d'accueil, pour une cohérence visuelle.
 
 ## [1.1.0] — 2026-08-14
 

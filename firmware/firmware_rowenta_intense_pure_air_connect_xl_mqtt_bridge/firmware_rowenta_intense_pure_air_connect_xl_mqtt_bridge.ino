@@ -70,7 +70,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.1.0"
+#define FIRMWARE_VERSION "1.1.1"
 #define MDNS_HOSTNAME "rowenta"
 
 // ---------- Global objects ----------
@@ -287,23 +287,37 @@ String generateOtaPage(const char* message = "") {
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
   html += "<title>Rowenta Intense Pure Air Connect XL local app</title>";
-  html += "<style>body{font-family:sans-serif;max-width:420px;margin:20px auto;padding:0 12px;}";
-  html += "label{display:block;margin-top:14px;font-weight:bold;}";
-  html += "input,select{width:100%;padding:8px;margin-top:4px;box-sizing:border-box;}";
-  html += "button{margin-top:20px;width:100%;padding:12px;background:#2b7de9;color:white;border:none;border-radius:4px;font-size:16px;}";
-  html += ".msg{background:#d4edda;padding:10px;border-radius:4px;margin-bottom:10px;}";
-  html += "h2{margin-top:28px;}hr{margin-top:30px;border:none;border-top:1px solid #ddd;}";
-  html += ".langsw{text-align:right;margin-bottom:10px;font-size:13px;}";
-  html += ".langsw a{color:#888;text-decoration:none;margin-left:8px;}";
-  html += ".langsw a.active{color:#222;font-weight:700;text-decoration:underline;}";
+  html += "<style>";
+  html += "*{box-sizing:border-box;}";
+  html += "body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:420px;margin:0 auto;padding:20px 16px;";
+  html += "background:linear-gradient(160deg,#123256,#020509 85%);min-height:100vh;color:#222;}";
+  html += "h1{font-size:22px;margin:0 0 18px;color:#f0f4fa;}";
+  html += ".card{background:white;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 4px 14px rgba(0,0,0,0.25);}";
+  html += ".card h2{margin:0 0 4px;font-size:15px;color:#333;}";
+  html += "hr{display:none;}";
+  html += "label{display:block;margin-top:14px;font-weight:600;font-size:13px;color:#555;}";
+  html += "input,select,textarea{width:100%;padding:9px;margin-top:4px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;font-size:14px;}";
+  html += "button{margin-top:16px;width:100%;padding:12px;background:#2b7de9;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;}";
+  html += ".msg{background:#d9f2e3;color:#1e8449;padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:14px;}";
+  html += ".topnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}";
+  html += ".topnav .pages a{color:#9fb3cc;font-size:13px;text-decoration:none;margin-right:14px;}";
+  html += ".topnav .pages a.active{color:white;font-weight:700;text-decoration:underline;}";
+  html += ".langsw a{color:#9fb3cc;font-size:12px;text-decoration:none;margin-left:8px;}";
+  html += ".langsw a.active{color:white;font-weight:700;text-decoration:underline;}";
+  html += "footer{text-align:center;margin-top:22px;color:#5a7396;font-size:11px;}";
+  html += "footer a{color:#5a7396;text-decoration:none;}";
   html += "</style></head><body>";
-  html += "<div class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
-  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></div>";
+
+  html += "<div class='topnav'><span class='pages'><a href='/'>" + T("Accueil", "Home") + "</a><a href='/settings' class='active'>" + T("Parametres", "Settings") + "</a></span>";
+  html += "<span class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
+  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></span></div>";
+
   html += "<h1>" + T("Parametres Rowenta", "Rowenta Settings") + "</h1>";
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
+  html += "<div class='card'>";
   html += "<h2>" + T("Reseau WiFi", "WiFi network") + "</h2>";
-  html += "<p style='color:#888;font-size:13px;'>" + T("Reseau actuel : ", "Current network: ") + config.wifiSsid + "</p>";
+  html += "<p style='color:#888;font-size:13px;margin:4px 0 0;'>" + T("Reseau actuel : ", "Current network: ") + config.wifiSsid + "</p>";
   html += "<form method='POST' action='/wifi'>";
   html += "<label>" + T("Reseau detecte", "Detected network") + "</label><select onchange=\"document.getElementById('ssid').value=this.value\">";
   html += "<option value=''>-- " + T("choisir", "select") + " --</option>";
@@ -315,40 +329,45 @@ String generateOtaPage(const char* message = "") {
   html += "<label>" + T("Mot de passe WiFi", "WiFi password") + "</label><input type='password' name='wifi_pass'>";
   html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
   html += "<button type='submit'>" + T("Changer de reseau et redemarrer", "Change network and restart") + "</button></form>";
+  html += "</div>";
 
-  html += "<hr><h2>" + T("Mot de passe OTA", "OTA password") + "</h2>";
+  html += "<div class='card'>";
+  html += "<h2>" + T("Mot de passe OTA", "OTA password") + "</h2>";
   html += "<form method='POST' action='/ota'>";
   html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
   html += "<label>" + T("Nouveau mot de passe OTA", "New OTA password") + "</label><input type='password' name='ota_pass' minlength='8' required>";
   html += "<label>" + T("Confirmer", "Confirm") + "</label><input type='password' name='ota_pass2' minlength='8' required>";
   html += "<button type='submit'>" + T("Enregistrer et redemarrer", "Save and restart") + "</button></form>";
+  html += "</div>";
 
-  html += "<p style='margin-top:30px;color:#888;font-size:13px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + "</p>";
-  html += "<a href='/' style='color:#888;font-size:13px;'>&larr; " + T("Retour a l'accueil", "Back to home") + "</a>";
-
-  html += "<hr><h2>" + T("Diagnostic", "Diagnostics") + "</h2>";
-  html += "<p style='color:#555;font-size:13px;line-height:1.7;'>";
+  html += "<div class='card'>";
+  html += "<h2>" + T("Diagnostic", "Diagnostics") + "</h2>";
+  html += "<p style='color:#555;font-size:13px;line-height:1.7;margin:8px 0 0;'>";
   html += T("Signal WiFi", "WiFi signal") + " : " + String(WiFi.RSSI()) + " dBm<br>";
   html += T("Memoire libre", "Free memory") + " : " + String(ESP.getFreeHeap() / 1024) + " KB<br>";
   html += T("Temps de fonctionnement", "Uptime") + " : " + formatUptime(millis()) + "<br>";
   html += T("Adresse MAC", "MAC address") + " : " + WiFi.macAddress() + "<br>";
   html += T("Version firmware", "Firmware version") + " : " FIRMWARE_VERSION;
   html += "</p>";
+  html += "<p style='color:#888;font-size:12px;margin-top:8px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + " &middot; http://" MDNS_HOSTNAME ".local</p>";
+  html += "</div>";
 
-  html += "<hr><h2>" + T("Sauvegarde / Restauration", "Backup / Restore") + "</h2>";
-  html += "<p style='color:#888;font-size:13px;'>" + T(
+  html += "<div class='card'>";
+  html += "<h2>" + T("Sauvegarde / Restauration", "Backup / Restore") + "</h2>";
+  html += "<p style='color:#888;font-size:13px;margin:4px 0 12px;'>" + T(
     "Exportez votre configuration (WiFi/MQTT) pour la restaurer facilement plus tard, par exemple sur un nouvel appareil.",
     "Export your configuration (WiFi/MQTT) to restore it easily later, e.g. on a replacement device.") + "</p>";
-  html += "<a href='/config/export' style='display:block;text-align:center;padding:12px;border:1px solid #e0e0e0;border-radius:4px;color:#2b7de9;text-decoration:none;margin-bottom:14px;'>" +
+  html += "<a href='/config/export' style='display:block;text-align:center;padding:12px;border:1px solid #e0e0e0;border-radius:8px;color:#2b7de9;text-decoration:none;font-weight:600;font-size:14px;'>" +
           T("Telecharger la configuration (.json)", "Download configuration (.json)") + "</a>";
 
   html += "<form method='POST' action='/config/import'>";
   html += "<label>" + T("Coller le contenu JSON exporte", "Paste exported JSON content") + "</label>";
-  html += "<textarea name='json_config' rows='4' style='width:100%;padding:8px;margin-top:4px;box-sizing:border-box;font-family:monospace;font-size:12px;' required></textarea>";
+  html += "<textarea name='json_config' rows='4' style='font-family:monospace;font-size:12px;' required></textarea>";
   html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
   html += "<button type='submit'>" + T("Importer et redemarrer", "Import and restart") + "</button></form>";
+  html += "</div>";
 
-  html += "<footer style='text-align:center;margin-top:22px;color:#aaa;font-size:11px;'>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank' style='color:#aaa;'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
+  html += "<footer>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
   html += "</body></html>";
   return html;
 }
@@ -396,11 +415,15 @@ String generateControlPage(const char* message = "") {
   html += ".langsw{text-align:right;margin-bottom:6px;}";
   html += ".langsw a{color:#9fb3cc;font-size:12px;text-decoration:none;margin-left:8px;}";
   html += ".langsw a.active{color:white;font-weight:700;text-decoration:underline;}";
+  html += ".topnav{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}";
+  html += ".topnav .pages a{color:#9fb3cc;font-size:13px;text-decoration:none;margin-right:14px;}";
+  html += ".topnav .pages a.active{color:white;font-weight:700;text-decoration:underline;}";
   html += "footer{text-align:center;margin-top:22px;color:#5a7396;font-size:11px;}";
   html += "footer a{color:#5a7396;text-decoration:none;}";
   html += "</style></head><body>";
-  html += "<div class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
-  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></div>";
+  html += "<div class='topnav'><span class='pages'><a href='/' class='active'>" + T("Accueil", "Home") + "</a><a href='/settings'>" + T("Parametres", "Settings") + "</a></span>";
+  html += "<span class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
+  html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></span></div>";
   html += "<h1>" + T("Purificateur Rowenta", "Rowenta Purifier") + "</h1>";
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
@@ -454,7 +477,6 @@ String generateControlPage(const char* message = "") {
     html += "</div>";
   }
 
-  html += "<a class='link' href='/settings'>" + T("Parametres (WiFi / OTA)", "Settings (WiFi / OTA)") + "</a>";
 
   html += "<script>";
   html += "let pendingClick=false;";
