@@ -69,6 +69,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
+#define FIRMWARE_VERSION "1.0.0"
 
 // ---------- Global objects ----------
 HardwareSerial mcuSerial(2);
@@ -242,7 +243,7 @@ String generateOtaPage(const char* message = "") {
   int networkCount = WiFi.scanNetworks();
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-  html += "<title>Parametres Rowenta</title>";
+  html += "<title>Rowenta Intense Pure Air Connect XL local app</title>";
   html += "<style>body{font-family:sans-serif;max-width:420px;margin:20px auto;padding:0 12px;}";
   html += "label{display:block;margin-top:14px;font-weight:bold;}";
   html += "input,select{width:100%;padding:8px;margin-top:4px;box-sizing:border-box;}";
@@ -281,6 +282,7 @@ String generateOtaPage(const char* message = "") {
 
   html += "<p style='margin-top:30px;color:#888;font-size:13px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + "</p>";
   html += "<a href='/' style='color:#888;font-size:13px;'>&larr; " + T("Retour a l'accueil", "Back to home") + "</a>";
+  html += "<footer style='text-align:center;margin-top:22px;color:#aaa;font-size:11px;'>Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank' style='color:#aaa;'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
   html += "</body></html>";
   return html;
 }
@@ -293,7 +295,7 @@ String generateControlPage(const char* message = "") {
   const char* MODE_ICONS[] = {"&#128564;", "&#128640;", "&#9728;&#65039;", "&#127769;"};
   String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-  html += "<title>Purificateur Rowenta</title>";
+  html += "<title>Rowenta Intense Pure Air Connect XL local app</title>";
   html += "<style>";
   html += "*{box-sizing:border-box;}";
   html += "body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:420px;margin:0 auto;padding:20px 16px;";
@@ -328,6 +330,8 @@ String generateControlPage(const char* message = "") {
   html += ".langsw{text-align:right;margin-bottom:6px;}";
   html += ".langsw a{color:#9fb3cc;font-size:12px;text-decoration:none;margin-left:8px;}";
   html += ".langsw a.active{color:white;font-weight:700;text-decoration:underline;}";
+  html += "footer{text-align:center;margin-top:22px;color:#5a7396;font-size:11px;}";
+  html += "footer a{color:#5a7396;text-decoration:none;}";
   html += "</style></head><body>";
   html += "<div class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
   html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></div>";
@@ -409,6 +413,8 @@ String generateControlPage(const char* message = "") {
   html += "}";
   html += "setInterval(refreshState,2500);";
   html += "</script>";
+
+  html += "<footer>Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
 
   html += "</body></html>";
   return html;
@@ -815,7 +821,7 @@ void setup() {
   pinMode(PIN_TIMER, OUTPUT); digitalWrite(PIN_TIMER, LOW);
 
   Serial.println("\n=== Rowenta - Firmware complet - demarrage ===");
-  Serial.println("    par Xavier Hang");
+  Serial.println("    par Xavier Hang - v" FIRMWARE_VERSION);
 
   bootTime = millis();
   if (loadConfigAndCheckReset()) {
