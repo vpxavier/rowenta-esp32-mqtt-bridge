@@ -5,6 +5,18 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.2.1] — 2026-08-14
+
+### Fixed
+- Outdoor air quality values were never picked up: the JSON parser matched the `current_units` block (unit labels, e.g. `"pm10":"µg/m³"`) instead of the `current` block (actual numeric values), since both share the same field names and the parser took the first match. Parsing is now restricted to the `current` block. A raw payload log was also added for easier troubleshooting if this ever fails again.
+
+## [1.2.0] — 2026-08-14
+
+### Added
+- Outdoor air quality: set your location on an interactive map (Leaflet/OpenStreetMap) on the settings page, and the device fetches outdoor AQI, PM2.5 and PM10 from the free Open-Meteo Air Quality API (no API key required) every 15 minutes, displayed as a new card on the home page.
+- "Use my location" button (browser geolocation) as a quick alternative to picking a spot on the map.
+- Location is included in the configuration export/import.
+
 ## [1.1.1] — 2026-08-14
 
 ### Changed
@@ -50,6 +62,18 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.2.1] — 2026-08-14
+
+### Corrigé
+- La qualité d'air extérieure n'était jamais récupérée : l'analyseur JSON correspondait au bloc `current_units` (les libellés d'unités, ex. `"pm10":"µg/m³"`) au lieu du bloc `current` (les vraies valeurs numériques), les deux blocs partageant les mêmes noms de champs et l'analyseur prenant la première correspondance trouvée. L'extraction est désormais restreinte au bloc `current`. Un journal de la réponse brute a aussi été ajouté pour faciliter le diagnostic en cas de nouveau problème.
+
+## [1.2.0] — 2026-08-14
+
+### Ajouté
+- Qualité de l'air extérieure : indiquez votre position sur une carte interactive (Leaflet/OpenStreetMap) depuis la page de paramètres, et l'appareil récupère l'AQI extérieur, les PM2.5 et PM10 via l'API gratuite Open-Meteo Air Quality (sans clé API) toutes les 15 minutes, affiché dans une nouvelle carte sur la page d'accueil.
+- Bouton « Utiliser ma position » (géolocalisation du navigateur) en alternative rapide au pointage manuel sur la carte.
+- La position est incluse dans l'export/import de configuration.
 
 ## [1.1.1] — 2026-08-14
 

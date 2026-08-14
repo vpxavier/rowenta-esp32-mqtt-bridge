@@ -38,6 +38,8 @@
 #include <PubSubClient.h>
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <esp_task_wdt.h>
 
 // ---------- Pins ----------
@@ -70,7 +72,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.1.1"
+#define FIRMWARE_VERSION "1.2.1"
 #define MDNS_HOSTNAME "rowenta"
 
 // ---------- Global objects ----------
@@ -85,7 +87,7 @@ IPAddress apIP(192, 168, 4, 1);
 bool portalMode = false;
 
 struct Config {
-  String wifiSsid, wifiPass, mqttHost, mqttUser, mqttPass, otaPass, uiLang;
+  String wifiSsid, wifiPass, mqttHost, mqttUser, mqttPass, otaPass, uiLang, locLat, locLon;
   int mqttPort;
 } config;
 
@@ -149,6 +151,8 @@ bool loadConfigAndCheckReset() {
   config.mqttPass = prefs.getString("mqtt_pass", "");
   config.otaPass  = prefs.getString("ota_pass", "rowenta_ota");
   config.uiLang   = prefs.getString("ui_lang", "fr");
+  config.locLat   = prefs.getString("loc_lat", "");
+  config.locLon   = prefs.getString("loc_lon", "");
   bool doubleReset = prefs.getBool("boot_pend", false);
   prefs.putBool("boot_pend", true);
   prefs.end();
@@ -165,6 +169,8 @@ void saveConfig() {
   prefs.putString("mqtt_pass", config.mqttPass);
   prefs.putString("ota_pass", config.otaPass);
   prefs.putString("ui_lang", config.uiLang);
+  prefs.putString("loc_lat", config.locLat);
+  prefs.putString("loc_lon", config.locLon);
   prefs.end();
 }
 
@@ -223,6 +229,63 @@ int extractJsonInt(const String& json, const String& key, int defaultValue) {
   while (end < (int)json.length() && (isDigit(json[end]) || json[end] == '-')) end++;
   if (end == start) return defaultValue;
   return json.substring(start, end).toInt();
+}
+
+float extractJsonFloat(const String& json, const String& key, float defaultValue) {
+  String needle = "\"" + key + "\":";
+  int start = json.indexOf(needle);
+  if (start < 0) return defaultValue;
+  start += needle.length();
+  int end = start;
+  while (end < (int)json.length() && (isDigit(json[end]) || json[end] == '-' || json[end] == '.')) end++;
+  if (end == start) return defaultValue;
+  return json.substring(start, end).toFloat();
+}
+
+// ============================================================
+// Outdoor air quality (Open-Meteo Air Quality API — free, no API key)
+// ============================================================
+
+bool outdoorKnown = false;
+int outdoorAqi = -1;
+float outdoorPm25 = -1;
+float outdoorPm10 = -1;
+unsigned long lastOutdoorFetch = 0;
+#define OUTDOOR_FETCH_INTERVAL_MS 900000UL // 15 minutes
+
+void fetchOutdoorAirQuality() {
+  if (config.locLat.length() == 0 || config.locLon.length() == 0) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClientSecure client;
+  client.setInsecure(); // skip certificate validation (simple, standard for this kind of project)
+  HTTPClient http;
+
+  String url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + config.locLat +
+               "&longitude=" + config.locLon + "&current=european_aqi,pm10,pm2_5";
+
+  if (!http.begin(client, url)) {
+    Serial.println("[AIR EXT] Echec begin() HTTPClient");
+    return;
+  }
+  int code = http.GET();
+  if (code == 200) {
+    String payload = http.getString();
+    int currentStart = payload.indexOf("\"current\":");
+    String currentBlock = (currentStart >= 0) ? payload.substring(currentStart) : payload;
+    outdoorAqi = extractJsonInt(currentBlock, "european_aqi", -1);
+    outdoorPm25 = extractJsonFloat(currentBlock, "pm2_5", -1);
+    outdoorPm10 = extractJsonFloat(currentBlock, "pm10", -1);
+    outdoorKnown = (outdoorAqi >= 0);
+    Serial.printf("[AIR EXT] AQI europeen=%d PM2.5=%.1f PM10=%.1f\n", outdoorAqi, outdoorPm25, outdoorPm10);
+    if (!outdoorKnown) {
+      Serial.println("[AIR EXT] Reponse recue mais parsing echoue, payload brut :");
+      Serial.println(payload);
+    }
+  } else {
+    Serial.printf("[AIR EXT] Echec requete, code=%d\n", code);
+  }
+  http.end();
 }
 
 // ============================================================
@@ -367,6 +430,45 @@ String generateOtaPage(const char* message = "") {
   html += "<button type='submit'>" + T("Importer et redemarrer", "Import and restart") + "</button></form>";
   html += "</div>";
 
+  html += "<div class='card'>";
+  html += "<h2>" + T("Position (qualite d'air exterieure)", "Location (outdoor air quality)") + "</h2>";
+  html += "<p style='color:#888;font-size:13px;margin:4px 0 10px;'>" + T(
+    "Indiquez votre position pour afficher la qualite de l'air exterieure sur la page d'accueil.",
+    "Set your location to display outdoor air quality on the home page.") + "</p>";
+  html += "<div id='locMap' style='height:220px;border-radius:8px;'></div>";
+  html += "<button type='button' id='useMyLocBtn' style='margin-top:10px;background:#8a8f98;'>" + T("Utiliser ma position", "Use my location") + "</button>";
+  html += "<form method='POST' action='/location' id='locForm'>";
+  html += "<input type='hidden' name='lat' id='locLat' value='" + config.locLat + "'>";
+  html += "<input type='hidden' name='lon' id='locLon' value='" + config.locLon + "'>";
+  html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
+  html += "<button type='submit'>" + T("Enregistrer la position", "Save location") + "</button></form>";
+  html += "</div>";
+
+  html += "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>";
+  html += "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>";
+  html += "<script>";
+  html += "var startLat = " + String(config.locLat.length() > 0 ? config.locLat : "48.8566") + ";";
+  html += "var startLon = " + String(config.locLon.length() > 0 ? config.locLon : "2.3522") + ";";
+  html += "var hasLoc = " + String(config.locLat.length() > 0 ? "true" : "false") + ";";
+  html += "var map = L.map('locMap').setView([startLat, startLon], hasLoc ? 12 : 4);";
+  html += "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);";
+  html += "var marker = hasLoc ? L.marker([startLat,startLon],{draggable:true}).addTo(map) : null;";
+  html += "function setMarker(lat,lon){";
+  html += "if(marker) marker.setLatLng([lat,lon]); else marker = L.marker([lat,lon],{draggable:true}).addTo(map);";
+  html += "marker.on('dragend',function(){var p=marker.getLatLng();document.getElementById('locLat').value=p.lat.toFixed(5);document.getElementById('locLon').value=p.lng.toFixed(5);});";
+  html += "document.getElementById('locLat').value=lat.toFixed(5);document.getElementById('locLon').value=lon.toFixed(5);";
+  html += "}";
+  html += "if(hasLoc) setMarker(startLat,startLon);";
+  html += "map.on('click', function(e){ setMarker(e.latlng.lat, e.latlng.lng); map.panTo(e.latlng); });";
+  html += "document.getElementById('useMyLocBtn').addEventListener('click', function(){";
+  html += "if(!navigator.geolocation){ alert('Geolocation not available'); return; }";
+  html += "navigator.geolocation.getCurrentPosition(function(pos){";
+  html += "var lat=pos.coords.latitude, lon=pos.coords.longitude;";
+  html += "map.setView([lat,lon], 13); setMarker(lat,lon);";
+  html += "}, function(){ alert('" + T("Impossible de recuperer votre position.", "Could not get your location.") + "'); });";
+  html += "});";
+  html += "</script>";
+
   html += "<footer>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
   html += "</body></html>";
   return html;
@@ -447,6 +549,19 @@ String generateControlPage(const char* message = "") {
             String(airLevelLabel(level)) + " (" + String(stateAirQuality) + ")</span></div>";
   }
   html += "</div>";
+
+  if (outdoorKnown) {
+    int outLevel = 0;
+    if (outdoorAqi > 80) outLevel = 2;
+    else if (outdoorAqi > 40) outLevel = 1;
+    const char* outLevelClass[] = {"good", "degraded", "bad"};
+    html += "<div class='card'>";
+    html += "<div class='row'><span class='k'>" + T("Air exterieur (AQI)", "Outdoor air (AQI)") + "</span><span class='badge " + String(outLevelClass[outLevel]) + "'>" +
+            String(outdoorAqi) + "</span></div>";
+    html += "<div class='row'><span class='k'>PM2.5</span><span class='v'>" + String(outdoorPm25, 1) + " &micro;g/m&sup3;</span></div>";
+    html += "<div class='row'><span class='k'>PM10</span><span class='v'>" + String(outdoorPm10, 1) + " &micro;g/m&sup3;</span></div>";
+    html += "</div>";
+  }
 
   if (stateKnown) {
     html += "<div class='card'>";
@@ -578,6 +693,26 @@ void handleCmdTimer() {
 
 void handleOtaGet() { server.send(200, "text/html", generateOtaPage()); }
 
+void handleLocationPost() {
+  String currentPass = server.arg("current_pass");
+  if (currentPass != config.otaPass) {
+    server.send(200, "text/html", generateOtaPage(T("Erreur : mot de passe OTA actuel incorrect.", "Error: current OTA password is incorrect.").c_str()));
+    return;
+  }
+  String lat = server.arg("lat");
+  String lon = server.arg("lon");
+  if (lat.length() == 0 || lon.length() == 0) {
+    server.send(200, "text/html", generateOtaPage(T("Erreur : position invalide.", "Error: invalid location.").c_str()));
+    return;
+  }
+  config.locLat = lat;
+  config.locLon = lon;
+  saveConfig();
+  lastOutdoorFetch = 0; // force a fresh fetch on next loop
+  outdoorKnown = false;
+  server.send(200, "text/html", generateOtaPage(T("Position enregistree.", "Location saved.").c_str()));
+}
+
 void handleConfigExport() {
   String json = "{\"wifiSsid\":\"" + config.wifiSsid + "\",";
   json += "\"wifiPass\":\"" + config.wifiPass + "\",";
@@ -585,7 +720,9 @@ void handleConfigExport() {
   json += "\"mqttPort\":" + String(config.mqttPort) + ",";
   json += "\"mqttUser\":\"" + config.mqttUser + "\",";
   json += "\"mqttPass\":\"" + config.mqttPass + "\",";
-  json += "\"uiLang\":\"" + config.uiLang + "\"}";
+  json += "\"uiLang\":\"" + config.uiLang + "\",";
+  json += "\"locLat\":\"" + config.locLat + "\",";
+  json += "\"locLon\":\"" + config.locLon + "\"}";
   server.sendHeader("Content-Disposition", "attachment; filename=rowenta_config.json");
   server.send(200, "application/json", json);
 }
@@ -610,6 +747,10 @@ void handleConfigImport() {
   config.mqttPass = extractJsonString(json, "mqttPass");
   String lang = extractJsonString(json, "uiLang");
   if (lang == "en" || lang == "fr") config.uiLang = lang;
+  String impLat = extractJsonString(json, "locLat");
+  String impLon = extractJsonString(json, "locLon");
+  if (impLat.length() > 0) config.locLat = impLat;
+  if (impLon.length() > 0) config.locLon = impLon;
   saveConfig();
   server.send(200, "text/html", "<h1>" + T("Configuration importee", "Configuration imported") + "</h1><p>" + T("Redemarrage...", "Restarting...") + "</p>");
   delay(1500);
@@ -981,6 +1122,7 @@ void setup() {
     server.on("/wifi", HTTP_POST, handleWifiPost);
     server.on("/config/export", HTTP_GET, handleConfigExport);
     server.on("/config/import", HTTP_POST, handleConfigImport);
+    server.on("/location", HTTP_POST, handleLocationPost);
     server.on("/cmd/power", HTTP_POST, handleCmdPower);
     server.on("/cmd/mode", HTTP_POST, handleCmdMode);
     server.on("/cmd/light", HTTP_POST, handleCmdLight);
@@ -1039,6 +1181,12 @@ void loop() {
     mqtt.loop();
     ArduinoOTA.handle();
     server.handleClient();
+    if (millis() - lastOutdoorFetch > OUTDOOR_FETCH_INTERVAL_MS || lastOutdoorFetch == 0) {
+      lastOutdoorFetch = millis();
+      esp_task_wdt_reset();
+      fetchOutdoorAirQuality();
+      esp_task_wdt_reset();
+    }
   } else {
     monitorWifi();
   }

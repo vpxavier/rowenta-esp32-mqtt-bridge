@@ -44,6 +44,7 @@ The panel buttons are **capacitive**, not mechanical. The working solution: simu
 - ✅ Reachable at `http://rowenta.local` via mDNS, no need to look up the IP address
 - ✅ WiFi/MQTT configuration portal on first boot (no hardcoded credentials)
 - ✅ Over-the-air firmware updates, password changeable from the web UI; the open page auto-reloads once the device is back online after an update
+- ✅ Outdoor air quality: pick your location on an interactive map and see the outdoor AQI, PM2.5 and PM10 (via the free Open-Meteo API, no key required) right next to the indoor reading
 - ✅ Configuration backup/restore: export the WiFi/MQTT settings as a `.json` file and re-import them later
 - ✅ Built-in diagnostics (WiFi signal, free memory, uptime, MAC address, firmware version)
 - ✅ Automatic WiFi reconnection after a drop
@@ -155,6 +156,7 @@ Les boutons du panneau sont **capacitifs**, pas mécaniques. La solution qui fon
 - ✅ Accessible via `http://rowenta.local` (mDNS), plus besoin de chercher l'adresse IP
 - ✅ Portail de configuration WiFi/MQTT au premier démarrage (pas d'identifiants codés en dur)
 - ✅ Mise à jour du firmware par WiFi (OTA), mot de passe modifiable depuis l'interface web ; la page ouverte se recharge automatiquement une fois l'appareil de nouveau disponible après une mise à jour
+- ✅ Qualité d'air extérieure : indiquez votre position sur une carte interactive et consultez l'AQI extérieur, les PM2.5 et PM10 (via l'API gratuite Open-Meteo, sans clé requise) juste à côté de la mesure intérieure
 - ✅ Sauvegarde/restauration de la configuration : export des réglages WiFi/MQTT en fichier `.json`, réimportable plus tard
 - ✅ Diagnostic intégré (signal WiFi, mémoire libre, temps de fonctionnement, adresse MAC, version du firmware)
 - ✅ Reconnexion WiFi automatique en cas de coupure
