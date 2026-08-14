@@ -70,7 +70,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.0.2"
+#define FIRMWARE_VERSION "1.1.0"
 #define MDNS_HOSTNAME "rowenta"
 
 // ---------- Global objects ----------
@@ -185,6 +185,47 @@ void confirmStableBoot() {
 }
 
 // ============================================================
+// Diagnostics helpers
+// ============================================================
+
+String formatUptime(unsigned long ms) {
+  unsigned long s = ms / 1000;
+  unsigned long h = s / 3600;
+  unsigned long m = (s % 3600) / 60;
+  unsigned long sec = s % 60;
+  String out = "";
+  if (h > 0) out += String(h) + "h ";
+  out += String(m) + "m " + String(sec) + "s";
+  return out;
+}
+
+// ============================================================
+// Simple JSON string/int extraction (no external library —
+// matches the manual JSON building already used elsewhere)
+// ============================================================
+
+String extractJsonString(const String& json, const String& key) {
+  String needle = "\"" + key + "\":\"";
+  int start = json.indexOf(needle);
+  if (start < 0) return "";
+  start += needle.length();
+  int end = json.indexOf('"', start);
+  if (end < 0) return "";
+  return json.substring(start, end);
+}
+
+int extractJsonInt(const String& json, const String& key, int defaultValue) {
+  String needle = "\"" + key + "\":";
+  int start = json.indexOf(needle);
+  if (start < 0) return defaultValue;
+  start += needle.length();
+  int end = start;
+  while (end < (int)json.length() && (isDigit(json[end]) || json[end] == '-')) end++;
+  if (end == start) return defaultValue;
+  return json.substring(start, end).toInt();
+}
+
+// ============================================================
 // WiFi/MQTT configuration portal
 // ============================================================
 
@@ -284,6 +325,29 @@ String generateOtaPage(const char* message = "") {
 
   html += "<p style='margin-top:30px;color:#888;font-size:13px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + "</p>";
   html += "<a href='/' style='color:#888;font-size:13px;'>&larr; " + T("Retour a l'accueil", "Back to home") + "</a>";
+
+  html += "<hr><h2>" + T("Diagnostic", "Diagnostics") + "</h2>";
+  html += "<p style='color:#555;font-size:13px;line-height:1.7;'>";
+  html += T("Signal WiFi", "WiFi signal") + " : " + String(WiFi.RSSI()) + " dBm<br>";
+  html += T("Memoire libre", "Free memory") + " : " + String(ESP.getFreeHeap() / 1024) + " KB<br>";
+  html += T("Temps de fonctionnement", "Uptime") + " : " + formatUptime(millis()) + "<br>";
+  html += T("Adresse MAC", "MAC address") + " : " + WiFi.macAddress() + "<br>";
+  html += T("Version firmware", "Firmware version") + " : " FIRMWARE_VERSION;
+  html += "</p>";
+
+  html += "<hr><h2>" + T("Sauvegarde / Restauration", "Backup / Restore") + "</h2>";
+  html += "<p style='color:#888;font-size:13px;'>" + T(
+    "Exportez votre configuration (WiFi/MQTT) pour la restaurer facilement plus tard, par exemple sur un nouvel appareil.",
+    "Export your configuration (WiFi/MQTT) to restore it easily later, e.g. on a replacement device.") + "</p>";
+  html += "<a href='/config/export' style='display:block;text-align:center;padding:12px;border:1px solid #e0e0e0;border-radius:4px;color:#2b7de9;text-decoration:none;margin-bottom:14px;'>" +
+          T("Telecharger la configuration (.json)", "Download configuration (.json)") + "</a>";
+
+  html += "<form method='POST' action='/config/import'>";
+  html += "<label>" + T("Coller le contenu JSON exporte", "Paste exported JSON content") + "</label>";
+  html += "<textarea name='json_config' rows='4' style='width:100%;padding:8px;margin-top:4px;box-sizing:border-box;font-family:monospace;font-size:12px;' required></textarea>";
+  html += "<label>" + T("Mot de passe OTA actuel (requis)", "Current OTA password (required)") + "</label><input type='password' name='current_pass' required>";
+  html += "<button type='submit'>" + T("Importer et redemarrer", "Import and restart") + "</button></form>";
+
   html += "<footer style='text-align:center;margin-top:22px;color:#aaa;font-size:11px;'>" + T("Auteur : ", "Author: ") + "Xavier Hang &middot; <a href='https://github.com/vpxavier' target='_blank' style='color:#aaa;'>@vpxavier</a> &middot; v" FIRMWARE_VERSION "</footer>";
   html += "</body></html>";
   return html;
@@ -491,6 +555,44 @@ void handleCmdTimer() {
 }
 
 void handleOtaGet() { server.send(200, "text/html", generateOtaPage()); }
+
+void handleConfigExport() {
+  String json = "{\"wifiSsid\":\"" + config.wifiSsid + "\",";
+  json += "\"wifiPass\":\"" + config.wifiPass + "\",";
+  json += "\"mqttHost\":\"" + config.mqttHost + "\",";
+  json += "\"mqttPort\":" + String(config.mqttPort) + ",";
+  json += "\"mqttUser\":\"" + config.mqttUser + "\",";
+  json += "\"mqttPass\":\"" + config.mqttPass + "\",";
+  json += "\"uiLang\":\"" + config.uiLang + "\"}";
+  server.sendHeader("Content-Disposition", "attachment; filename=rowenta_config.json");
+  server.send(200, "application/json", json);
+}
+
+void handleConfigImport() {
+  String currentPass = server.arg("current_pass");
+  if (currentPass != config.otaPass) {
+    server.send(200, "text/html", generateOtaPage(T("Erreur : mot de passe OTA actuel incorrect.", "Error: current OTA password is incorrect.").c_str()));
+    return;
+  }
+  String json = server.arg("json_config");
+  String newSsid = extractJsonString(json, "wifiSsid");
+  if (newSsid.length() == 0) {
+    server.send(200, "text/html", generateOtaPage(T("Erreur : JSON invalide ou incomplet.", "Error: invalid or incomplete JSON.").c_str()));
+    return;
+  }
+  config.wifiSsid = newSsid;
+  config.wifiPass = extractJsonString(json, "wifiPass");
+  config.mqttHost = extractJsonString(json, "mqttHost");
+  config.mqttPort = extractJsonInt(json, "mqttPort", 1883);
+  config.mqttUser = extractJsonString(json, "mqttUser");
+  config.mqttPass = extractJsonString(json, "mqttPass");
+  String lang = extractJsonString(json, "uiLang");
+  if (lang == "en" || lang == "fr") config.uiLang = lang;
+  saveConfig();
+  server.send(200, "text/html", "<h1>" + T("Configuration importee", "Configuration imported") + "</h1><p>" + T("Redemarrage...", "Restarting...") + "</p>");
+  delay(1500);
+  ESP.restart();
+}
 
 void handleWifiPost() {
   String currentPass = server.arg("current_pass");
@@ -855,6 +957,8 @@ void setup() {
     server.on("/settings", HTTP_GET, handleOtaGet);
     server.on("/ota", HTTP_POST, handleOtaPost);
     server.on("/wifi", HTTP_POST, handleWifiPost);
+    server.on("/config/export", HTTP_GET, handleConfigExport);
+    server.on("/config/import", HTTP_POST, handleConfigImport);
     server.on("/cmd/power", HTTP_POST, handleCmdPower);
     server.on("/cmd/mode", HTTP_POST, handleCmdMode);
     server.on("/cmd/light", HTTP_POST, handleCmdLight);

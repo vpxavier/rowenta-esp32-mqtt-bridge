@@ -40,11 +40,14 @@ The panel buttons are **capacitive**, not mechanical. The working solution: simu
 - ✅ Real-time reading: on/off, mode (Silent/Boost/Day/Night), LED brightness, air-quality indicator
 - ✅ Full control of the 4 physical buttons via touch simulation
 - ✅ Automatic Home Assistant integration via MQTT (switch, select, sensors)
-- ✅ Standalone web interface (works even without Home Assistant), with automatic state refresh
+- ✅ Standalone bilingual (FR/EN) web interface (works even without Home Assistant), with automatic state refresh and a UI lockout that prevents overlapping commands
+- ✅ Reachable at `http://rowenta.local` via mDNS, no need to look up the IP address
 - ✅ WiFi/MQTT configuration portal on first boot (no hardcoded credentials)
-- ✅ Over-the-air firmware updates, password changeable from the web UI
+- ✅ Over-the-air firmware updates, password changeable from the web UI; the open page auto-reloads once the device is back online after an update
+- ✅ Configuration backup/restore: export the WiFi/MQTT settings as a `.json` file and re-import them later
+- ✅ Built-in diagnostics (WiFi signal, free memory, uptime, MAC address, firmware version)
 - ✅ Automatic WiFi reconnection after a drop
-- ✅ Hardware watchdog (reboots the device if it hangs)
+- ✅ Hardware watchdog (reboots the device if it hangs), fed throughout OTA transfers so updates are never interrupted
 
 ### What doesn't work yet
 
@@ -148,11 +151,14 @@ Les boutons du panneau sont **capacitifs**, pas mécaniques. La solution qui fon
 - ✅ Lecture en temps réel : marche/arrêt, mode (Silencieux/Boost/Jour/Nuit), intensité LED, indicateur de qualité d'air
 - ✅ Contrôle complet des 4 boutons physiques par simulation de contact
 - ✅ Intégration Home Assistant automatique via MQTT (switch, select, capteurs)
-- ✅ Interface web autonome (fonctionne même sans Home Assistant), avec actualisation automatique de l'état
+- ✅ Interface web autonome bilingue (FR/EN) (fonctionne même sans Home Assistant), avec actualisation automatique de l'état et un verrouillage empêchant l'envoi de commandes qui se chevauchent
+- ✅ Accessible via `http://rowenta.local` (mDNS), plus besoin de chercher l'adresse IP
 - ✅ Portail de configuration WiFi/MQTT au premier démarrage (pas d'identifiants codés en dur)
-- ✅ Mise à jour du firmware par WiFi (OTA), mot de passe modifiable depuis l'interface web
+- ✅ Mise à jour du firmware par WiFi (OTA), mot de passe modifiable depuis l'interface web ; la page ouverte se recharge automatiquement une fois l'appareil de nouveau disponible après une mise à jour
+- ✅ Sauvegarde/restauration de la configuration : export des réglages WiFi/MQTT en fichier `.json`, réimportable plus tard
+- ✅ Diagnostic intégré (signal WiFi, mémoire libre, temps de fonctionnement, adresse MAC, version du firmware)
 - ✅ Reconnexion WiFi automatique en cas de coupure
-- ✅ Chien de garde matériel (redémarre l'appareil s'il se bloque)
+- ✅ Chien de garde matériel (redémarre l'appareil s'il se bloque), nourri pendant tout le transfert OTA pour ne jamais interrompre une mise à jour
 
 ### Ce qui ne fonctionne pas (encore)
 

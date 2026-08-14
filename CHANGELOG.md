@@ -5,6 +5,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.1.0] — 2026-08-14
+
+### Added
+- Diagnostics section on the settings page: WiFi signal (RSSI), free memory, uptime, MAC address, firmware version.
+- Configuration backup/restore: download the current WiFi/MQTT configuration as a `.json` file, and restore it later (or on a replacement device) by pasting it back in, protected by the current OTA password.
+
 ## [1.0.2] — 2026-08-14
 
 ### Added
@@ -38,6 +44,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.1.0] — 2026-08-14
+
+### Ajouté
+- Section Diagnostic sur la page de paramètres : signal WiFi (RSSI), mémoire libre, temps de fonctionnement, adresse MAC, version du firmware.
+- Sauvegarde/restauration de la configuration : téléchargez la configuration WiFi/MQTT actuelle sous forme de fichier `.json`, et restaurez-la plus tard (ou sur un appareil de remplacement) en la recollant, protégé par le mot de passe OTA actuel.
 
 ## [1.0.2] — 2026-08-14
 
