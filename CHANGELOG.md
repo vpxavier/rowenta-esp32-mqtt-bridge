@@ -5,6 +5,17 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.3.1] — 2026-11-12
+
+### Fixed
+- If the WiFi stays down for more than 10 minutes, the device now restarts instead of retrying forever (the WiFi stack can get stuck on ESP32).
+- The outdoor air quality request can no longer trigger a watchdog restart: every step (connection, handshake, download) now has a timeout, and the watchdog timeout is extended while the request runs.
+- A crash, watchdog or brownout restart is no longer mistaken for a double press on RST (which would have reset the OTA password). The double-reset detection is now only armed after a power-on/RST reset, which also removes two flash writes per boot in a restart loop.
+
+### Added
+- A warning banner on the home and settings pages while the OTA password is still the public default.
+- README: *Security notes* section and instructions to update from the browser with the `.bin` file published on the GitHub Releases page.
+
 ## [1.3.0] — 2026-11-12
 
 ### Added
@@ -78,6 +89,17 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.3.1] — 2026-11-12
+
+### Corrigé
+- Si le WiFi reste coupé plus de 10 minutes, l'appareil redémarre désormais au lieu de réessayer indéfiniment (la pile WiFi de l'ESP32 peut se bloquer).
+- La requête de qualité d'air extérieure ne peut plus provoquer de redémarrage par le watchdog : chaque étape (connexion, négociation, téléchargement) a maintenant un délai maximal, et le délai du watchdog est allongé pendant la requête.
+- Un redémarrage dû à un plantage, au watchdog ou à une chute de tension n'est plus pris pour un double appui sur RST (qui aurait réinitialisé le mot de passe OTA). La détection du double appui n'est armée qu'après une mise sous tension / un appui sur RST, ce qui supprime aussi deux écritures en flash par démarrage en cas de redémarrages en boucle.
+
+### Ajouté
+- Un bandeau d'avertissement sur les pages d'accueil et Paramètres tant que le mot de passe OTA est celui, public, par défaut.
+- README : section *Notes de sécurité* et explications pour mettre à jour depuis le navigateur avec le fichier `.bin` publié sur la page Releases de GitHub.
 
 ## [1.3.0] — 2026-11-12
 

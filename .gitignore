@@ -1,0 +1,3 @@
+# Arduino IDE build output (compiled binaries are published on the GitHub Releases page)
+build/
+**/build/

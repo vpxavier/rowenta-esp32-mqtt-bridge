@@ -89,6 +89,16 @@ The build was done on a **perfboard**, with point-to-point wiring (no custom etc
 4. **Flash the firmware** (`firmware/firmware_rowenta_intense_pure_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (board "ESP32 Dev Module", requires the **PubSubClient3** library)
 5. **First boot**: connect to the `Rowenta-Setup` WiFi access point, configure your WiFi network and MQTT broker
 6. **Home Assistant** automatically detects the device via MQTT Discovery — or use the built-in web interface directly at the ESP32's IP address
+7. **Change the OTA password** as soon as possible (Settings page): the default one is public, see *Security notes* below
+
+**No Arduino IDE?** Download the ready-to-use `.bin` file from the [Releases](../../releases) page and upload it from the browser at `http://rowenta.local/update` (or `http://192.168.4.1/update` on the `Rowenta-Setup` portal). For a first flash on a blank ESP32, use the Arduino IDE once (USB cable); every later update can be done from the browser.
+
+### Security notes
+
+- **Change the default OTA password** (`rowenta_ota`) right after the first boot. It is public (it is written in this README) and it protects firmware updates, WiFi/MQTT changes and configuration import. The web interface shows a warning until it is changed.
+- **The control page has no password**: anyone on your local network can switch the purifier on/off, change the mode, etc. This is acceptable on a home network, but do not expose the device to the Internet (no port forwarding).
+- Web traffic is plain HTTP (no HTTPS) and MQTT credentials are stored in the device's flash memory: use a dedicated MQTT account with limited rights.
+- Double-pressing the RST button (twice within 3 seconds) resets the OTA password to its default value, so physical access to the device is a full reset.
 
 The full wiring diagram and detailed component list with supplier references are available in this repository.
 
@@ -203,6 +213,16 @@ Le montage a été réalisé sur **carte perforée**, avec câblage point à poi
 4. **Flasher le firmware** (`firmware/firmware_rowenta_intense_pure_air_connect_xl_mqtt_bridge.ino`) via Arduino IDE (carte "ESP32 Dev Module", bibliothèque **PubSubClient3** requise)
 5. **Premier démarrage** : connectez-vous au point d'accès WiFi `Rowenta-Setup`, configurez votre réseau WiFi et votre broker MQTT
 6. **Home Assistant** détecte automatiquement l'appareil via MQTT Discovery — ou utilisez directement l'interface web embarquée à l'adresse IP de l'ESP32
+7. **Changez le mot de passe OTA** dès que possible (page Paramètres) : celui par défaut est public, voir *Notes de sécurité* ci-dessous
+
+**Pas d'Arduino IDE ?** Téléchargez le fichier `.bin` prêt à l'emploi sur la page [Releases](../../releases) et envoyez-le depuis le navigateur à l'adresse `http://rowenta.local/update` (ou `http://192.168.4.1/update` dans le portail `Rowenta-Setup`). Pour le tout premier flash d'un ESP32 vierge, utilisez une fois l'Arduino IDE (câble USB) ; toutes les mises à jour suivantes peuvent se faire depuis le navigateur.
+
+### Notes de sécurité
+
+- **Changez le mot de passe OTA par défaut** (`rowenta_ota`) juste après le premier démarrage. Il est public (il figure dans ce README) et protège les mises à jour du firmware, les changements WiFi/MQTT et l'import de configuration. L'interface web affiche un avertissement tant qu'il n'a pas été changé.
+- **La page de commande n'a pas de mot de passe** : toute personne présente sur votre réseau local peut allumer/éteindre le purificateur, changer le mode, etc. C'est acceptable sur un réseau domestique, mais n'exposez pas l'appareil sur Internet (pas de redirection de port).
+- Le trafic web est en HTTP simple (pas de HTTPS) et les identifiants MQTT sont stockés dans la mémoire flash de l'appareil : utilisez un compte MQTT dédié aux droits limités.
+- Un double appui sur le bouton RST (deux fois en moins de 3 secondes) remet le mot de passe OTA à sa valeur par défaut : l'accès physique à l'appareil permet donc une réinitialisation complète.
 
 Le schéma de câblage complet et la liste de composants détaillée avec références fournisseur sont disponibles dans ce dépôt.
 

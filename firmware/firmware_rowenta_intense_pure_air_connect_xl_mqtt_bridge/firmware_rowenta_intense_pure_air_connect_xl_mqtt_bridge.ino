@@ -52,6 +52,9 @@
 #define FRAME_TIMEOUT_MS 50
 #define HEARTBEAT_INTERVAL_MS 10000
 #define WDT_TIMEOUT_S 15
+#define WDT_LONG_TIMEOUT_S 40            // temporary watchdog timeout during the (blocking) outdoor air request
+#define WIFI_LOST_RESTART_MS 600000UL    // restart if WiFi has been down this long (10 min)
+#define DEFAULT_OTA_PASS "rowenta_ota"
 
 #define PIN_POWER 18
 #define PIN_LIGHT 19
@@ -80,7 +83,7 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.3.0"
+#define FIRMWARE_VERSION "1.3.1"
 #define PORTAL_RETRY_MS 120000UL  // saved WiFi but unreachable: retry by rebooting after this delay
 #define MDNS_HOSTNAME "rowenta"
 
@@ -144,6 +147,7 @@ uint8_t heartbeatSeq = 0;
 unsigned long lastHeartbeat = 0;
 unsigned long bootTime = 0;
 bool bootFlagCleared = false;
+bool bootFlagArmed = false;   // true when this boot wrote the double-reset flag
 #define DOUBLE_RESET_WINDOW_MS 3000
 
 // ============================================================
@@ -191,14 +195,24 @@ bool loadConfigAndCheckReset() {
   config.mqttPort = prefs.getInt("mqtt_port", 1883);
   config.mqttUser = prefs.getString("mqtt_user", "");
   config.mqttPass = prefs.getString("mqtt_pass", "");
-  config.otaPass  = prefs.getString("ota_pass", "rowenta_ota");
+  config.otaPass  = prefs.getString("ota_pass", DEFAULT_OTA_PASS);
   config.uiLang   = prefs.getString("ui_lang", "fr");
   config.locLat   = prefs.getString("loc_lat", "");
   config.locLon   = prefs.getString("loc_lon", "");
-  bool doubleReset = prefs.getBool("boot_pend", false);
-  prefs.putBool("boot_pend", true);
-  // Reset diagnostics: load the counters and count this restart
+  // Reset diagnostics: why did we restart?
   lastResetCat = classifyReset((int)esp_reset_reason());
+  // The double-reset detection only concerns the user pressing the RST button, which the
+  // ESP32 reports as a power-on reset. After a crash, watchdog or brownout restart it is
+  // skipped: no flash write, and no false "double reset" (which would reset the OTA password).
+  bool userReset = (lastResetCat == RC_POWER);
+  bool pending = prefs.getBool("boot_pend", false);
+  bool doubleReset = userReset && pending;
+  if (userReset) {
+    prefs.putBool("boot_pend", true);
+    bootFlagArmed = true;
+  } else if (pending) {
+    prefs.putBool("boot_pend", false);  // stale flag left by an interrupted boot
+  }
   for (int i = 0; i < RC_COUNT; i++) resetCounts[i] = prefs.getUInt(RESET_KEYS[i], 0);
   resetCounts[lastResetCat]++;
   prefs.putUInt(RESET_KEYS[lastResetCat], resetCounts[lastResetCat]);
@@ -312,19 +326,39 @@ float outdoorPm10 = -1;
 unsigned long lastOutdoorFetch = 0;
 #define OUTDOOR_FETCH_INTERVAL_MS 900000UL // 15 minutes
 
+// Changes the task watchdog timeout at runtime (used around blocking network calls)
+void setWatchdogTimeout(int seconds) {
+  esp_task_wdt_config_t cfg = {
+    .timeout_ms = (uint32_t)seconds * 1000,
+    .idle_core_mask = 0,
+    .trigger_panic = true
+  };
+  esp_task_wdt_reconfigure(&cfg);
+  esp_task_wdt_reset();
+}
+
 void fetchOutdoorAirQuality() {
   if (config.locLat.length() == 0 || config.locLon.length() == 0) return;
   if (WiFi.status() != WL_CONNECTED) return;
 
+  // The request below blocks the main loop (DNS + TLS handshake + download). Bound every step
+  // with a timeout and give the watchdog more room meanwhile, so a slow server can never
+  // trigger a watchdog restart.
+  setWatchdogTimeout(WDT_LONG_TIMEOUT_S);
+
   WiFiClientSecure client;
   client.setInsecure(); // skip certificate validation (simple, standard for this kind of project)
+  client.setTimeout(8); // seconds
   HTTPClient http;
+  http.setConnectTimeout(8000);
+  http.setTimeout(8000);
 
   String url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + config.locLat +
                "&longitude=" + config.locLon + "&current=european_aqi,pm10,pm2_5";
 
   if (!http.begin(client, url)) {
     Serial.println("[AIR EXT] Echec begin() HTTPClient");
+    setWatchdogTimeout(WDT_TIMEOUT_S);
     return;
   }
   int code = http.GET();
@@ -345,6 +379,7 @@ void fetchOutdoorAirQuality() {
     Serial.printf("[AIR EXT] Echec requete, code=%d\n", code);
   }
   http.end();
+  setWatchdogTimeout(WDT_TIMEOUT_S);
 }
 
 // ============================================================
@@ -404,6 +439,18 @@ void handleNotFound() {
   server.send(302, "text/plain", "");
 }
 
+// Warning banner shown while the OTA password is still the public default
+String defaultPassBanner(bool withLink) {
+  if (config.otaPass != DEFAULT_OTA_PASS) return "";
+  String b = "<div style='background:#fdecd2;color:#8a5a0b;padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;line-height:1.5;'>";
+  b += "<b>" + T("Mot de passe OTA par defaut", "Default OTA password") + "</b><br>";
+  b += T("Le mot de passe par defaut est public (il figure dans le README). Changez-le pour que personne ne puisse modifier votre appareil.",
+         "The default password is public (it is written in the README). Change it so that nobody can modify your device.");
+  if (withLink) b += " <a href='/settings' style='color:#8a5a0b;font-weight:700;'>" + T("Changer maintenant", "Change it now") + "</a>";
+  b += "</div>";
+  return b;
+}
+
 // ============================================================
 // OTA settings page (reachable at the device's normal IP)
 // ============================================================
@@ -439,6 +486,7 @@ String generateOtaPage(const char* message = "") {
   html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></span></div>";
 
   html += "<h1>" + T("Parametres Rowenta", "Rowenta Settings") + "</h1>";
+  html += defaultPassBanner(false);
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
   html += "<div class='card'>";
@@ -601,6 +649,7 @@ String generateControlPage(const char* message = "") {
   html += "<span class='langsw'><a href='/lang?set=fr'" + String(config.uiLang != "en" ? " class='active'" : "") + ">FR</a>";
   html += "<a href='/lang?set=en'" + String(config.uiLang == "en" ? " class='active'" : "") + ">EN</a></span></div>";
   html += "<h1>" + T("Purificateur Rowenta", "Rowenta Purifier") + "</h1>";
+  html += defaultPassBanner(true);
   if (strlen(message) > 0) html += "<p class='msg'>" + String(message) + "</p>";
 
   html += "<div class='card'>";
@@ -1293,9 +1342,18 @@ unsigned long lastMqttAttempt = 0;
 unsigned long lastWifiAttempt = 0;
 #define WIFI_RECONNECT_INTERVAL_MS 15000
 
-// Non-blocking WiFi watchdog: retries a reconnect periodically if the link drops
+unsigned long wifiLostSince = 0;   // 0 = WiFi currently up
+
+// Non-blocking WiFi watchdog: retries a reconnect periodically if the link drops, and
+// restarts the device if the WiFi stays down too long (the WiFi stack can get stuck)
 void monitorWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED) { wifiLostSince = 0; return; }
+  if (wifiLostSince == 0) wifiLostSince = millis() | 1;
+  if (millis() - wifiLostSince > WIFI_LOST_RESTART_MS) {
+    Serial.println("WiFi indisponible depuis trop longtemps : redemarrage.");
+    delay(200);
+    ESP.restart();
+  }
   if (millis() - lastWifiAttempt < WIFI_RECONNECT_INTERVAL_MS) return;
   lastWifiAttempt = millis();
   Serial.println("WiFi deconnecte, tentative de reconnexion...");
@@ -1348,7 +1406,7 @@ void setup() {
   bootTime = millis();
   if (loadConfigAndCheckReset()) {
     Serial.println("!! Double-reset detecte : reinitialisation du mot de passe OTA !!");
-    config.otaPass = "rowenta_ota";
+    config.otaPass = DEFAULT_OTA_PASS;
     saveConfig();
   }
 
@@ -1416,7 +1474,7 @@ void loop() {
 
   // Clears the double-reset flag once the boot has been stable for a few seconds
   if (!bootFlagCleared && millis() - bootTime > DOUBLE_RESET_WINDOW_MS) {
-    confirmStableBoot();
+    if (bootFlagArmed) confirmStableBoot();
     bootFlagCleared = true;
   }
 
@@ -1435,6 +1493,7 @@ void loop() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
+    wifiLostSince = 0;
     ensureMqttConnection();
     mqtt.loop();
     ArduinoOTA.handle();
