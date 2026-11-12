@@ -5,6 +5,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.3.0] — 2026-11-12
+
+### Added
+- Firmware update from the browser: a new `/update` page lets you upload a compiled `.bin` file (Arduino IDE: Sketch → Export Compiled Binary), with a progress bar and automatic return to the home page after the restart. It is protected by the OTA password, which is checked before anything is written to flash, and it is also available on the `Rowenta-Setup` portal.
+- Restart diagnostics: the settings page now shows the cause of the last restart (power-on / RST button, voltage drop (brownout), watchdog, crash, software restart) and a per-cause counter kept in flash. The setup portal page shows the same information.
+- New Home Assistant diagnostic sensors published over MQTT: last restart cause, brownout count, WiFi signal (dBm) and uptime (refreshed every minute).
+
+### Fixed
+- The 15-second watchdog timeout was never applied with ESP32 core 3.x: the core already starts the task watchdog, so the firmware's own initialisation failed (`TWDT already initialized` in the boot log) and the core's shorter default timeout stayed active. The watchdog is now reconfigured instead.
+
 ## [1.2.2] — 2026-10-11
 
 ### Fixed
@@ -68,6 +78,16 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.3.0] — 2026-11-12
+
+### Ajouté
+- Mise à jour du firmware depuis le navigateur : une nouvelle page `/update` permet d'envoyer un fichier `.bin` compilé (Arduino IDE : Croquis → Exporter les binaires compilés), avec barre de progression et retour automatique à la page d'accueil après le redémarrage. Elle est protégée par le mot de passe OTA, vérifié avant toute écriture en mémoire flash, et elle est aussi disponible dans le portail `Rowenta-Setup`.
+- Diagnostic des redémarrages : la page Paramètres affiche désormais la cause du dernier redémarrage (mise sous tension / bouton RST, chute de tension (brownout), watchdog, plantage, redémarrage logiciel) et un compteur par cause conservé en mémoire flash. La page du portail de configuration affiche les mêmes informations.
+- Nouveaux capteurs de diagnostic Home Assistant publiés en MQTT : cause du dernier redémarrage, nombre de chutes de tension, signal WiFi (dBm) et temps de fonctionnement (actualisés chaque minute).
+
+### Corrigé
+- Le délai de 15 secondes du watchdog n'était jamais appliqué avec le core ESP32 3.x : le core démarre déjà le watchdog de tâche, donc l'initialisation faite par le firmware échouait (`TWDT already initialized` dans le journal de démarrage) et le délai par défaut du core, plus court, restait actif. Le watchdog est maintenant reconfiguré.
 
 ## [1.2.2] — 2026-10-11
 

@@ -9,6 +9,7 @@
     - Button-press simulation (transistors)
     - WiFi + MQTT configuration portal (first-time setup)
     - MQTT client with automatic Home Assistant discovery
+    - Firmware update from the browser (/update) and restart diagnostics
 
   REQUIRED LIBRARY: PubSubClient3 (fork maintained by hmueller01, based on PubSubClient by Nick O'Leary)
   Tools -> Manage Libraries -> search "PubSubClient3"
@@ -40,7 +41,9 @@
 #include <ESPmDNS.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <Update.h>
 #include <esp_task_wdt.h>
+#include <esp_system.h>
 
 // ---------- Pins ----------
 #define PIN_RX 16
@@ -68,11 +71,16 @@
 #define TOPIC_TIMER_SET   "rowenta/purificateur/timer/set"
 #define TOPIC_AIRQ_STATE  "rowenta/purificateur/qualite_air/state"
 #define TOPIC_AIRQ_LEVEL_STATE "rowenta/purificateur/qualite_air_niveau/state"
+#define TOPIC_DIAG_RESET    "rowenta/purificateur/diag/reset_reason"
+#define TOPIC_DIAG_BROWNOUT "rowenta/purificateur/diag/brownouts"
+#define TOPIC_DIAG_RSSI     "rowenta/purificateur/diag/rssi"
+#define TOPIC_DIAG_UPTIME   "rowenta/purificateur/diag/uptime"
+#define DIAG_PUBLISH_INTERVAL_MS 60000UL
 #define AIRQ_THRESHOLD_DEGRADED 81
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.2.2"
+#define FIRMWARE_VERSION "1.3.0"
 #define PORTAL_RETRY_MS 120000UL  // saved WiFi but unreachable: retry by rebooting after this delay
 #define MDNS_HOSTNAME "rowenta"
 
@@ -139,6 +147,38 @@ bool bootFlagCleared = false;
 #define DOUBLE_RESET_WINDOW_MS 3000
 
 // ============================================================
+// Reset diagnostics: why did the ESP32 last restart, and how often
+// (counters are kept in flash so they survive restarts)
+// ============================================================
+#define RC_POWER    0
+#define RC_BROWNOUT 1
+#define RC_WATCHDOG 2
+#define RC_PANIC    3
+#define RC_SOFTWARE 4
+#define RC_OTHER    5
+#define RC_COUNT    6
+const char* RESET_KEYS[RC_COUNT]  = {"rc_pwr", "rc_bo", "rc_wdt", "rc_pan", "rc_sw", "rc_oth"};
+// Stable codes published over MQTT (language-independent)
+const char* RESET_CODES[RC_COUNT] = {"power_on", "brownout", "watchdog", "panic", "software", "other"};
+const char* RESET_LABELS_FR[RC_COUNT] = {"Mise sous tension / bouton RST", "Chute de tension (brownout)", "Watchdog (blocage)", "Plantage", "Redemarrage logiciel", "Autre"};
+const char* RESET_LABELS_EN[RC_COUNT] = {"Power-on / RST button", "Voltage drop (brownout)", "Watchdog (hang)", "Crash", "Software restart", "Other"};
+int lastResetCat = RC_OTHER;
+uint32_t resetCounts[RC_COUNT] = {0, 0, 0, 0, 0, 0};
+
+int classifyReset(int reason) {
+  switch (reason) {
+    case ESP_RST_POWERON:  return RC_POWER;
+    case ESP_RST_BROWNOUT: return RC_BROWNOUT;
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_WDT:      return RC_WATCHDOG;
+    case ESP_RST_PANIC:    return RC_PANIC;
+    case ESP_RST_SW:       return RC_SOFTWARE;
+    default:               return RC_OTHER;
+  }
+}
+
+// ============================================================
 // Configuration storage
 // ============================================================
 
@@ -157,6 +197,11 @@ bool loadConfigAndCheckReset() {
   config.locLon   = prefs.getString("loc_lon", "");
   bool doubleReset = prefs.getBool("boot_pend", false);
   prefs.putBool("boot_pend", true);
+  // Reset diagnostics: load the counters and count this restart
+  lastResetCat = classifyReset((int)esp_reset_reason());
+  for (int i = 0; i < RC_COUNT; i++) resetCounts[i] = prefs.getUInt(RESET_KEYS[i], 0);
+  resetCounts[lastResetCat]++;
+  prefs.putUInt(RESET_KEYS[lastResetCat], resetCounts[lastResetCat]);
   prefs.end();
   return doubleReset;
 }
@@ -205,6 +250,18 @@ String formatUptime(unsigned long ms) {
   if (h > 0) out += String(h) + "h ";
   out += String(m) + "m " + String(sec) + "s";
   return out;
+}
+
+const char* resetLabel(int cat) { return config.uiLang == "en" ? RESET_LABELS_EN[cat] : RESET_LABELS_FR[cat]; }
+
+// One-line summary of the restart counters, e.g. "Power-on 12 · Brownout 3 · ..."
+String resetCountersSummary() {
+  return T("Mise sous tension", "Power-on") + " " + String(resetCounts[RC_POWER]) + " &middot; " +
+         T("Chute de tension", "Brownout") + " " + String(resetCounts[RC_BROWNOUT]) + " &middot; " +
+         "Watchdog " + String(resetCounts[RC_WATCHDOG]) + " &middot; " +
+         T("Plantage", "Crash") + " " + String(resetCounts[RC_PANIC]) + " &middot; " +
+         T("Logiciel", "Software") + " " + String(resetCounts[RC_SOFTWARE]) + " &middot; " +
+         T("Autre", "Other") + " " + String(resetCounts[RC_OTHER]);
 }
 
 // ============================================================
@@ -319,7 +376,11 @@ String generateHomePage() {
   html += "<label>Port</label><input type='number' name='mqtt_port' value='1883' required>";
   html += "<label>Utilisateur</label><input type='text' name='mqtt_user'>";
   html += "<label>Mot de passe MQTT</label><input type='password' name='mqtt_pass'>";
-  html += "<button type='submit'>Enregistrer et redemarrer</button></form></body></html>";
+  html += "<button type='submit'>Enregistrer et redemarrer</button></form>";
+  html += "<p style='margin-top:24px;'><a href='/update'>Mise a jour du firmware / Firmware update</a></p>";
+  html += "<p style='color:#888;font-size:12px;line-height:1.6;'>Dernier redemarrage / Last restart : " + String(resetLabel(lastResetCat)) + "<br>";
+  html += resetCountersSummary() + "<br>v" FIRMWARE_VERSION "</p>";
+  html += "</body></html>";
   return html;
 }
 
@@ -412,9 +473,20 @@ String generateOtaPage(const char* message = "") {
   html += T("Memoire libre", "Free memory") + " : " + String(ESP.getFreeHeap() / 1024) + " KB<br>";
   html += T("Temps de fonctionnement", "Uptime") + " : " + formatUptime(millis()) + "<br>";
   html += T("Adresse MAC", "MAC address") + " : " + WiFi.macAddress() + "<br>";
-  html += T("Version firmware", "Firmware version") + " : " FIRMWARE_VERSION;
+  html += T("Version firmware", "Firmware version") + " : " FIRMWARE_VERSION "<br>";
+  html += T("Dernier redemarrage", "Last restart") + " : " + String(resetLabel(lastResetCat)) + "<br>";
+  html += T("Compteurs de redemarrages", "Restart counters") + " : " + resetCountersSummary();
   html += "</p>";
   html += "<p style='color:#888;font-size:12px;margin-top:8px;'>" + T("IP actuelle : ", "Current IP: ") + WiFi.localIP().toString() + " &middot; http://" MDNS_HOSTNAME ".local</p>";
+  html += "</div>";
+
+  html += "<div class='card'>";
+  html += "<h2>" + T("Mise a jour du firmware", "Firmware update") + "</h2>";
+  html += "<p style='color:#888;font-size:13px;margin:4px 0 12px;'>" + T(
+    "Envoyez un fichier .bin compile depuis votre navigateur, sans Arduino IDE ni cable USB.",
+    "Upload a compiled .bin file from your browser, without Arduino IDE or USB cable.") + "</p>";
+  html += "<a href='/update' style='display:block;text-align:center;padding:12px;border:1px solid #e0e0e0;border-radius:8px;color:#2b7de9;text-decoration:none;font-weight:600;font-size:14px;'>" +
+          T("Ouvrir la page de mise a jour", "Open the update page") + "</a>";
   html += "</div>";
 
   html += "<div class='card'>";
@@ -803,6 +875,139 @@ void handleOtaPost() {
   ESP.restart();
 }
 
+// ============================================================
+// Firmware update from the browser (upload of a compiled .bin file).
+// Available both on the normal network and on the setup portal.
+// The OTA password is sent in a request header so that it can be
+// checked BEFORE the first byte is written to flash.
+// ============================================================
+
+bool webUpdateAuthorized = false;
+bool webUpdateOk = false;
+String webUpdateError = "no file";
+
+String generateUpdatePage() {
+  String html = "<!DOCTYPE html><html><head><meta charset='utf-8'>";
+  html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+  html += "<title>Rowenta Intense Pure Air Connect XL local app</title>";
+  html += "<style>";
+  html += "*{box-sizing:border-box;}";
+  html += "body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;max-width:420px;margin:0 auto;padding:20px 16px;";
+  html += "background:linear-gradient(160deg,#123256,#020509 85%);min-height:100vh;color:#222;}";
+  html += "h1{font-size:22px;margin:0 0 18px;color:#f0f4fa;}";
+  html += ".card{background:white;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 4px 14px rgba(0,0,0,0.25);}";
+  html += "label{display:block;margin-top:14px;font-weight:600;font-size:13px;color:#555;}";
+  html += "input{width:100%;padding:9px;margin-top:4px;border:1px solid #ddd;border-radius:6px;font-size:14px;}";
+  html += "button{margin-top:16px;width:100%;padding:12px;background:#2b7de9;color:white;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;}";
+  html += "button:disabled{background:#9db8d8;}";
+  html += ".bar{height:10px;background:#e6e9ee;border-radius:5px;margin-top:16px;overflow:hidden;display:none;}";
+  html += ".bar div{height:100%;width:0;background:#27ae60;}";
+  html += "#st{font-size:14px;margin:12px 0 0;color:#333;}";
+  html += ".topnav{margin-bottom:14px;}";
+  html += ".topnav a{color:#9fb3cc;font-size:13px;text-decoration:none;margin-right:14px;}";
+  html += "footer{text-align:center;margin-top:22px;color:#5a7396;font-size:11px;}";
+  html += "</style></head><body>";
+  if (portalMode) {
+    html += "<div class='topnav'><a href='/'>&larr; " + T("Configuration", "Setup") + "</a></div>";
+  } else {
+    html += "<div class='topnav'><a href='/'>" + T("Accueil", "Home") + "</a><a href='/settings'>" + T("Parametres", "Settings") + "</a></div>";
+  }
+  html += "<h1>" + T("Mise a jour du firmware", "Firmware update") + "</h1>";
+  html += "<div class='card'>";
+  html += "<p style='color:#888;font-size:13px;margin:0;'>" + T(
+    "Version actuelle : ", "Current version: ") + FIRMWARE_VERSION "<br>" + T(
+    "Choisissez le fichier .ino.bin exporte depuis l'Arduino IDE (Croquis &rarr; Exporter les binaires compiles). N'utilisez pas les fichiers bootloader, partitions ou merged.",
+    "Choose the .ino.bin file exported from Arduino IDE (Sketch &rarr; Export Compiled Binary). Do not use the bootloader, partitions or merged files.") + "</p>";
+  html += "<label>" + T("Fichier firmware (.bin)", "Firmware file (.bin)") + "</label><input type='file' id='fw' accept='.bin'>";
+  html += "<label>" + T("Mot de passe OTA (requis)", "OTA password (required)") + "</label><input type='password' id='pw'>";
+  html += "<button id='go'>" + T("Mettre a jour", "Update") + "</button>";
+  html += "<div class='bar' id='bar'><div id='fill'></div></div>";
+  html += "<p id='st'></p>";
+  html += "</div>";
+  html += "<footer>v" FIRMWARE_VERSION "</footer>";
+  html += "<script>";
+  html += "var st=document.getElementById('st'),go=document.getElementById('go');";
+  html += "function waitBack(){fetch('/',{cache:'no-store'}).then(function(){location.href='/';}).catch(function(){setTimeout(waitBack,3000);});}";
+  html += "go.addEventListener('click',function(){";
+  html += "var f=document.getElementById('fw').files[0],pw=document.getElementById('pw').value;";
+  html += "if(!f){st.textContent='" + T("Choisissez un fichier .bin.", "Choose a .bin file.") + "';return;}";
+  html += "if(!pw){st.textContent='" + T("Saisissez le mot de passe OTA.", "Enter the OTA password.") + "';return;}";
+  html += "var fd=new FormData();fd.append('firmware',f,f.name);";
+  html += "var x=new XMLHttpRequest();x.open('POST','/update');";
+  html += "x.setRequestHeader('X-OTA-Password',encodeURIComponent(pw));";
+  html += "document.getElementById('bar').style.display='block';go.disabled=true;";
+  html += "x.upload.onprogress=function(e){if(e.lengthComputable){var p=Math.round(e.loaded*100/e.total);";
+  html += "document.getElementById('fill').style.width=p+'%';st.textContent='" + T("Envoi : ", "Uploading: ") + "'+p+'%';}};";
+  html += "x.onload=function(){";
+  html += "if(x.status==200){st.textContent='" + T("Mise a jour reussie. Redemarrage en cours...", "Update successful. Restarting...") + "';setTimeout(waitBack,8000);}";
+  html += "else if(x.status==403){st.textContent='" + T("Mot de passe OTA incorrect. Rien n\\'a ete modifie.", "Incorrect OTA password. Nothing was changed.") + "';go.disabled=false;}";
+  html += "else{st.textContent='" + T("Echec de la mise a jour : ", "Update failed: ") + "'+x.responseText;go.disabled=false;}};";
+  html += "x.onerror=function(){st.textContent='" + T("Connexion interrompue pendant l\\'envoi. L\\'ancien firmware reste en place.", "Connection lost during upload. The previous firmware is still in place.") + "';go.disabled=false;};";
+  html += "x.send(fd);});";
+  html += "</script></body></html>";
+  return html;
+}
+
+void handleUpdateGet() { server.send(200, "text/html", generateUpdatePage()); }
+
+// Called repeatedly while the file is being received
+void handleUpdateUpload() {
+  HTTPUpload& up = server.upload();
+  if (up.status == UPLOAD_FILE_START) {
+    webUpdateOk = false;
+    webUpdateError = "";
+    webUpdateAuthorized = (WebServer::urlDecode(server.header("X-OTA-Password")) == config.otaPass);
+    if (!webUpdateAuthorized) {
+      Serial.println("Mise a jour web refusee : mot de passe OTA incorrect.");
+      return;
+    }
+    Serial.printf("Mise a jour web : reception de %s\n", up.filename.c_str());
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) webUpdateError = Update.errorString();
+  } else if (up.status == UPLOAD_FILE_WRITE) {
+    esp_task_wdt_reset();
+    if (webUpdateAuthorized && webUpdateError.length() == 0) {
+      if (Update.write(up.buf, up.currentSize) != up.currentSize) webUpdateError = Update.errorString();
+    }
+  } else if (up.status == UPLOAD_FILE_END) {
+    if (webUpdateAuthorized && webUpdateError.length() == 0) {
+      if (Update.end(true)) {
+        webUpdateOk = true;
+        Serial.printf("Mise a jour web : %u octets recus.\n", (unsigned int)up.totalSize);
+      } else {
+        webUpdateError = Update.errorString();
+      }
+    }
+  } else if (up.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
+    webUpdateError = "aborted";
+  }
+}
+
+// Called once the whole request has been received
+void handleUpdatePost() {
+  if (webUpdateOk) {
+    server.send(200, "text/plain", "OK");
+    Serial.println("Mise a jour web terminee, redemarrage.");
+    delay(1000);
+    ESP.restart();
+  } else if (!webUpdateAuthorized) {
+    server.send(403, "text/plain", "auth");
+  } else {
+    Serial.println("Mise a jour web : echec (" + webUpdateError + ")");
+    server.send(500, "text/plain", webUpdateError);
+  }
+  webUpdateAuthorized = false;
+  webUpdateError = "no file";
+}
+
+// Registers the /update routes (shared by normal mode and portal mode)
+void registerUpdateRoutes() {
+  static const char* headerKeys[] = {"X-OTA-Password"};
+  server.collectHeaders(headerKeys, 1);
+  server.on("/update", HTTP_GET, handleUpdateGet);
+  server.on("/update", HTTP_POST, handleUpdatePost, handleUpdateUpload);
+}
+
 void startPortal() {
   portalMode = true;
   portalStart = millis();
@@ -815,6 +1020,7 @@ void startPortal() {
   dnsServer.start(53, "*", apIP);
   server.on("/", handleRoot);
   server.on("/save", HTTP_POST, handleSave);
+  registerUpdateRoutes();
   server.onNotFound(handleNotFound);
   server.begin();
 }
@@ -992,6 +1198,30 @@ void publishDiscovery() {
       "\"availability_topic\":\"" TOPIC_AVAIL "\"," + deviceBlock() + "}";
   mqtt.publish(("homeassistant/sensor/" + String(DEVICE_ID) + "/airq_niveau/config").c_str(), p.c_str(), true);
 
+  // Diagnostic sensors (restart reason, brownout count, WiFi signal, uptime)
+  p = "{\"name\":\"Dernier redemarrage\",\"unique_id\":\"" + String(DEVICE_ID) + "_reset_reason\","
+      "\"state_topic\":\"" TOPIC_DIAG_RESET "\",\"entity_category\":\"diagnostic\","
+      "\"availability_topic\":\"" TOPIC_AVAIL "\"," + deviceBlock() + "}";
+  mqtt.publish(("homeassistant/sensor/" + String(DEVICE_ID) + "/reset_reason/config").c_str(), p.c_str(), true);
+
+  p = "{\"name\":\"Chutes de tension\",\"unique_id\":\"" + String(DEVICE_ID) + "_brownouts\","
+      "\"state_topic\":\"" TOPIC_DIAG_BROWNOUT "\",\"entity_category\":\"diagnostic\","
+      "\"state_class\":\"total_increasing\","
+      "\"availability_topic\":\"" TOPIC_AVAIL "\"," + deviceBlock() + "}";
+  mqtt.publish(("homeassistant/sensor/" + String(DEVICE_ID) + "/brownouts/config").c_str(), p.c_str(), true);
+
+  p = "{\"name\":\"Signal WiFi\",\"unique_id\":\"" + String(DEVICE_ID) + "_rssi\","
+      "\"state_topic\":\"" TOPIC_DIAG_RSSI "\",\"entity_category\":\"diagnostic\","
+      "\"device_class\":\"signal_strength\",\"unit_of_measurement\":\"dBm\",\"state_class\":\"measurement\","
+      "\"availability_topic\":\"" TOPIC_AVAIL "\"," + deviceBlock() + "}";
+  mqtt.publish(("homeassistant/sensor/" + String(DEVICE_ID) + "/rssi/config").c_str(), p.c_str(), true);
+
+  p = "{\"name\":\"Temps de fonctionnement\",\"unique_id\":\"" + String(DEVICE_ID) + "_uptime\","
+      "\"state_topic\":\"" TOPIC_DIAG_UPTIME "\",\"entity_category\":\"diagnostic\","
+      "\"device_class\":\"duration\",\"unit_of_measurement\":\"s\","
+      "\"availability_topic\":\"" TOPIC_AVAIL "\"," + deviceBlock() + "}";
+  mqtt.publish(("homeassistant/sensor/" + String(DEVICE_ID) + "/uptime/config").c_str(), p.c_str(), true);
+
   Serial.println("Decouverte Home Assistant publiee.");
 }
 
@@ -1047,6 +1277,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+unsigned long lastDiagPublish = 0;
+
+// Publishes the diagnostic values (called on MQTT connect, then once a minute)
+void publishDiagnostics() {
+  if (!mqtt.connected()) return;
+  lastDiagPublish = millis();
+  mqtt.publish(TOPIC_DIAG_RESET, RESET_CODES[lastResetCat], true);
+  mqtt.publish(TOPIC_DIAG_BROWNOUT, String(resetCounts[RC_BROWNOUT]).c_str(), true);
+  mqtt.publish(TOPIC_DIAG_RSSI, String(WiFi.RSSI()).c_str(), true);
+  mqtt.publish(TOPIC_DIAG_UPTIME, String(millis() / 1000).c_str(), true);
+}
+
 unsigned long lastMqttAttempt = 0;
 unsigned long lastWifiAttempt = 0;
 #define WIFI_RECONNECT_INTERVAL_MS 15000
@@ -1079,6 +1321,7 @@ void ensureMqttConnection() {
     publishDiscovery();
     firstPublishDone = false;
     publishStateIfChanged();
+    publishDiagnostics();
   } else {
     Serial.printf("Echec MQTT, code=%d\n", mqtt.state());
   }
@@ -1130,6 +1373,7 @@ void setup() {
     server.on("/cmd/mode", HTTP_POST, handleCmdMode);
     server.on("/cmd/light", HTTP_POST, handleCmdLight);
     server.on("/cmd/timer", HTTP_POST, handleCmdTimer);
+    registerUpdateRoutes();
     server.begin();
     Serial.println("Page de parametres disponible sur http://" + WiFi.localIP().toString());
 
@@ -1159,9 +1403,12 @@ void setup() {
     .idle_core_mask = 0,
     .trigger_panic = true
   };
-  esp_task_wdt_init(&wdtConfig);
+  // ESP32 core 3.x already starts the task watchdog (with its own default timeout):
+  // reconfigure it, and only initialise it ourselves if it was not running.
+  if (esp_task_wdt_reconfigure(&wdtConfig) != ESP_OK) esp_task_wdt_init(&wdtConfig);
   esp_task_wdt_add(NULL);
   Serial.printf("Watchdog actif (timeout %ds)\n", WDT_TIMEOUT_S);
+  Serial.printf("Dernier redemarrage : %s\n", RESET_CODES[lastResetCat]);
 }
 
 void loop() {
@@ -1192,6 +1439,7 @@ void loop() {
     mqtt.loop();
     ArduinoOTA.handle();
     server.handleClient();
+    if (millis() - lastDiagPublish > DIAG_PUBLISH_INTERVAL_MS) publishDiagnostics();
     if (millis() - lastOutdoorFetch > OUTDOOR_FETCH_INTERVAL_MS || lastOutdoorFetch == 0) {
       lastOutdoorFetch = millis();
       esp_task_wdt_reset();
