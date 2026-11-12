@@ -5,6 +5,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 
 ---
 
+## [1.2.2] — 2026-10-11
+
+### Fixed
+- The device could stay stuck forever on the `Rowenta-Setup` captive portal even though the WiFi configuration was still saved: if the WiFi network was not reachable within the boot-time window (router still starting, temporary outage), the portal was started and never left. When a saved configuration exists, the device now reboots and retries the connection automatically after 2 minutes of portal inactivity (no client connected to the portal). The saved configuration is never erased.
+- The boot-time WiFi connection window was extended from 15 s to 20 s.
+
 ## [1.2.1] — 2026-08-14
 
 ### Fixed
@@ -62,6 +68,12 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/), versioning f
 ---
 
 *Français ci-dessous / French below*
+
+## [1.2.2] — 2026-10-11
+
+### Corrigé
+- L'appareil pouvait rester bloqué indéfiniment sur le portail captif `Rowenta-Setup` alors que la configuration WiFi était toujours enregistrée : si le réseau WiFi n'était pas joignable pendant la fenêtre de connexion au démarrage (routeur en cours de démarrage, coupure temporaire), le portail était lancé et jamais quitté. Lorsqu'une configuration est enregistrée, l'appareil redémarre désormais et retente la connexion automatiquement après 2 minutes d'inactivité du portail (aucun client connecté). La configuration enregistrée n'est jamais effacée.
+- La fenêtre de connexion WiFi au démarrage passe de 15 s à 20 s.
 
 ## [1.2.1] — 2026-08-14
 

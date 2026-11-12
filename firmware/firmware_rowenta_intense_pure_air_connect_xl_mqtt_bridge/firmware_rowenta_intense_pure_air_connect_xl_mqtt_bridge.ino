@@ -72,7 +72,8 @@
 #define AIRQ_THRESHOLD_BAD 171
 
 const char* DEVICE_ID = "rowenta_pu6080f0";
-#define FIRMWARE_VERSION "1.2.1"
+#define FIRMWARE_VERSION "1.2.2"
+#define PORTAL_RETRY_MS 120000UL  // saved WiFi but unreachable: retry by rebooting after this delay
 #define MDNS_HOSTNAME "rowenta"
 
 // ---------- Global objects ----------
@@ -85,6 +86,7 @@ PubSubClient mqtt(espClient);
 
 IPAddress apIP(192, 168, 4, 1);
 bool portalMode = false;
+unsigned long portalStart = 0;
 
 struct Config {
   String wifiSsid, wifiPass, mqttHost, mqttUser, mqttPass, otaPass, uiLang, locLat, locLon;
@@ -803,6 +805,7 @@ void handleOtaPost() {
 
 void startPortal() {
   portalMode = true;
+  portalStart = millis();
   Serial.println("=== Portail de configuration actif ===");
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
@@ -822,7 +825,7 @@ bool tryWifiConnect() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(config.wifiSsid.c_str(), config.wifiPass.c_str());
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) { delay(500); Serial.print("."); attempts++; }
+  while (WiFi.status() != WL_CONNECTED && attempts < 40) { delay(500); Serial.print("."); attempts++; }
   Serial.println();
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("WiFi connecte, IP: "); Serial.println(WiFi.localIP());
@@ -1173,6 +1176,14 @@ void loop() {
   if (portalMode) {
     dnsServer.processNextRequest();
     server.handleClient();
+    // Saved WiFi config exists but the network was unreachable at boot (router still
+    // starting, temporary outage...): retry automatically unless someone is using the portal.
+    if (config.wifiSsid.length() > 0 && millis() - portalStart > PORTAL_RETRY_MS &&
+        WiFi.softAPgetStationNum() == 0) {
+      Serial.println("Portail inactif: nouvelle tentative de connexion WiFi (redemarrage).");
+      delay(200);
+      ESP.restart();
+    }
     return;
   }
 
